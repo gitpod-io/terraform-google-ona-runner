@@ -1,0 +1,17 @@
+apiVersion: 1
+groups:
+  - name: gcp-runner-pubsub-backlog
+    interval: 30s
+    rules:
+      - alert: GCPRunnerPubSubBacklog
+        expr: gitpod_gcp_pubsub_subscription_backlog_messages > 1000
+        for: 10m
+        labels:
+          severity: high
+          component: gcp-runner
+          alert_type: message_backlog
+        annotations:
+          summary: "GCP Runner PubSub has message backlog"
+          description: "GCP Runner PubSub subscription {{ $labels.subscription }} has {{ $value }} unprocessed messages"
+          impact: "Delayed event processing and eventual consistency issues"
+          runbook_url: "https://github.com/gitpod-io/terraform-google-ona-runner/blob/main/monitoring/alerts/high/pubsub-backlog/runbook.md"

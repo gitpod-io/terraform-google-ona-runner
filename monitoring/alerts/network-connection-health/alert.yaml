@@ -1,0 +1,17 @@
+apiVersion: 1
+groups:
+  - name: gcp-runner-network-connection
+    interval: 30s
+    rules:
+      - alert: GCPRunnerNetworkConnectionUnhealthy
+        expr: gitpod_gcp_network_connection_health == 0
+        for: 3m
+        labels:
+          severity: medium
+          component: gcp-runner
+          alert_type: network_connectivity
+        annotations:
+          summary: "GCP Runner network connection is unhealthy"
+          description: "GCP Runner network connection to {{ $labels.endpoint }} ({{ $labels.connection_type }}) has been unhealthy for more than 3 minutes"
+          impact: "Potential connectivity issues to external services, may affect API calls and service functionality"
+          runbook_url: "https://github.com/gitpod-io/terraform-google-ona-runner/blob/main/monitoring/alerts/medium/network-connection-health/runbook.md"

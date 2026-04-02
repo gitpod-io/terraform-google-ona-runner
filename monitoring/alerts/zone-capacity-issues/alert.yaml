@@ -1,0 +1,17 @@
+apiVersion: 1
+groups:
+  - name: gcp-runner-zone-capacity
+    interval: 60s
+    rules:
+      - alert: GCPRunnerZoneCapacityUnavailable
+        expr: gitpod_gcp_compute_zone_capacity_available == 0
+        for: 15m
+        labels:
+          severity: medium
+          component: gcp-runner
+          alert_type: capacity
+        annotations:
+          summary: "GCP Runner zone capacity unavailable"
+          description: "GCP zone {{ $labels.zone }} has been unavailable for more than 15 minutes"
+          impact: "Cannot create environments in affected zone"
+          runbook_url: "https://github.com/gitpod-io/terraform-google-ona-runner/blob/main/monitoring/alerts/medium/zone-capacity-issues/runbook.md"

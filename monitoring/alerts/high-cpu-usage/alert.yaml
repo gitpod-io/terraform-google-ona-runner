@@ -1,0 +1,17 @@
+apiVersion: 1
+groups:
+  - name: gcp-runner-cpu-usage
+    interval: 60s
+    rules:
+      - alert: GCPRunnerHighCPUUsage
+        expr: (100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle",job="node-exporter"}[5m])) * 100)) > 80
+        for: 10m
+        labels:
+          severity: medium
+          component: gcp-runner
+          alert_type: resource_usage
+        annotations:
+          summary: "GCP Runner has high CPU usage"
+          description: "GCP Runner CPU usage is {{ $value | humanizePercentage }} for more than 10 minutes on instance {{ $labels.instance }}"
+          impact: "Performance degradation, slower environment operations"
+          runbook_url: "https://github.com/gitpod-io/terraform-google-ona-runner/blob/main/monitoring/alerts/medium/high-cpu-usage/runbook.md"

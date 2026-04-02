@@ -1,0 +1,29 @@
+{
+	"name": "Ona GCP Runner Terraform module",
+	"build": {
+        "context": ".",
+        "dockerfile": "Dockerfile"
+    },
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ms-vscode.vscode-json",
+				"hashicorp.terraform",
+				"googlecloudtools.cloudcode"
+			]
+		}
+	},
+    "postCreateCommand": "pre-commit install",
+	"remoteUser": "vscode",
+	"forwardPorts": [8080, 3000],
+	"portsAttributes": {
+		"8080": {
+			"label": "Application",
+			"onAutoForward": "notify"
+		},
+		"3000": {
+			"label": "Development Server",
+			"onAutoForward": "notify"
+		}
+	}
+}

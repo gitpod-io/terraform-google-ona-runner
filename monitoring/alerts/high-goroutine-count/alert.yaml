@@ -1,0 +1,17 @@
+apiVersion: 1
+groups:
+  - name: gcp-runner-goroutine-count
+    interval: 60s
+    rules:
+      - alert: GCPRunnerHighGoroutineCount
+        expr: go_goroutines{job="gcp_runner"} > 1000
+        for: 15m
+        labels:
+          severity: info
+          component: gcp-runner
+          alert_type: resource_usage
+        annotations:
+          summary: "GCP Runner has high goroutine count"
+          description: "GCP Runner has {{ $value }} active goroutines for more than 15 minutes"
+          impact: "Potential goroutine leak affecting performance"
+          runbook_url: "https://github.com/gitpod-io/terraform-google-ona-runner/blob/main/monitoring/alerts/info/high-goroutine-count/runbook.md"

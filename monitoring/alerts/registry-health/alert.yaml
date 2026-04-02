@@ -1,0 +1,17 @@
+apiVersion: 1
+groups:
+  - name: gcp-runner-registry-health
+    interval: 30s
+    rules:
+      - alert: GCPRunnerRegistryUnhealthy
+        expr: gitpod_gcp_registry_health_status == 0
+        for: 5m
+        labels:
+          severity: medium
+          component: gcp-runner
+          alert_type: registry_connectivity
+        annotations:
+          summary: "GCP Runner registry connection is unhealthy"
+          description: "GCP Runner registry {{ $labels.repository }} has been unhealthy for more than 5 minutes"
+          impact: "Container image operations may fail, affecting environment creation and updates"
+          runbook_url: "https://github.com/gitpod-io/terraform-google-ona-runner/blob/main/monitoring/alerts/medium/registry-health/runbook.md"

@@ -1,0 +1,17 @@
+apiVersion: 1
+groups:
+  - name: gcp-runner-network-errors
+    interval: 60s
+    rules:
+      - alert: GCPRunnerNetworkErrors
+        expr: rate(gitpod_gcp_compute_network_errors_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: medium
+          component: gcp-runner
+          alert_type: network_connectivity
+        annotations:
+          summary: "GCP Runner experiencing network errors"
+          description: "GCP Runner is experiencing {{ $value }} network errors per second over the last 5 minutes for endpoint {{ $labels.endpoint }}"
+          impact: "Intermittent connectivity issues affecting environment operations"
+          runbook_url: "https://github.com/gitpod-io/terraform-google-ona-runner/blob/main/monitoring/alerts/medium/network-errors/runbook.md"

@@ -1,0 +1,17 @@
+apiVersion: 1
+groups:
+  - name: gcp-runner-circuit-breaker
+    interval: 30s
+    rules:
+      - alert: GCPRunnerCircuitBreakerOpen
+        expr: gitpod_gcp_compute_circuit_breaker_state == 1
+        for: 5m
+        labels:
+          severity: high
+          component: gcp-runner
+          alert_type: circuit_breaker
+        annotations:
+          summary: "GCP Runner circuit breaker is open"
+          description: "GCP Runner circuit breaker for {{ $labels.service }} in {{ $labels.zone }} has been open for more than 5 minutes"
+          impact: "Reduced functionality to prevent cascading failures"
+          runbook_url: "https://github.com/gitpod-io/terraform-google-ona-runner/blob/main/monitoring/alerts/high/circuit-breaker-open/runbook.md"

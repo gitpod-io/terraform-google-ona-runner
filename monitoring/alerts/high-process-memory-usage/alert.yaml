@@ -1,0 +1,17 @@
+apiVersion: 1
+groups:
+  - name: gcp-runner-memory-usage
+    interval: 60s
+    rules:
+      - alert: GCPRunnerHighProcessMemoryUsage
+        expr: process_resident_memory_bytes{job="gcp_runner"} > 1073741824
+        for: 15m
+        labels:
+          severity: info
+          component: gcp-runner
+          alert_type: resource_usage
+        annotations:
+          summary: "GCP Runner has high process memory usage"
+          description: "GCP Runner memory usage is {{ $value | humanizeBytes }} (>1GB) for more than 15 minutes"
+          impact: "Potential service degradation if memory exhaustion occurs"
+          runbook_url: "https://github.com/gitpod-io/terraform-google-ona-runner/blob/main/monitoring/alerts/high-process-memory-usage/runbook.md"

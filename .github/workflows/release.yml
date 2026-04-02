@@ -1,0 +1,201 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to create release for'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Verify tag is on main branch
+        run: |
+          if ! git branch -r --contains "${RELEASE_TAG}" | grep -q 'origin/main'; then
+            echo "::error::Tag ${RELEASE_TAG} is not on main branch. Releases can only be created from tags on main."
+            exit 1
+          fi
+
+      - name: Get previous tag
+        id: prev_tag
+        run: |
+          PREV_TAG=$(git tag --sort=-creatordate | grep -v "^${RELEASE_TAG}$" | head -1)
+          echo "tag=${PREV_TAG}" >> $GITHUB_OUTPUT
+          echo "Previous tag: ${PREV_TAG}"
+
+      - name: Fetch manifest.json
+        id: manifest
+        run: |
+          MANIFEST=$(curl -sf https://storage.googleapis.com/gitpod-runner-releases/gcp/stable/manifest.json)
+          echo "version=$(echo "$MANIFEST" | jq -r '.version')" >> $GITHUB_OUTPUT
+          echo "runner_image=$(echo "$MANIFEST" | jq -r '.runner_image')" >> $GITHUB_OUTPUT
+          echo "proxy_image=$(echo "$MANIFEST" | jq -r '.proxy_image')" >> $GITHUB_OUTPUT
+          echo "prometheus_image=$(echo "$MANIFEST" | jq -r '.prometheus_image')" >> $GITHUB_OUTPUT
+          echo "node_exporter_image=$(echo "$MANIFEST" | jq -r '.node_exporter_image')" >> $GITHUB_OUTPUT
+          echo "cli_url=$(echo "$MANIFEST" | jq -r '.cli_url')" >> $GITHUB_OUTPUT
+          echo "supervisor_url=$(echo "$MANIFEST" | jq -r '.supervisor_url')" >> $GITHUB_OUTPUT
+          echo "vm_image=$(echo "$MANIFEST" | jq -r '.vm_image')" >> $GITHUB_OUTPUT
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          if [ -n "${{ steps.prev_tag.outputs.tag }}" ]; then
+            # Get commits between tags, excluding automated image update commits
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" \
+              "${{ steps.prev_tag.outputs.tag }}..${RELEASE_TAG}" \
+              --grep="Update GCP runner, proxy, prometheus, and node-exporter images" --invert-grep)
+          else
+            # First release - get all commits excluding automated ones
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" \
+              --grep="Update GCP runner, proxy, prometheus, and node-exporter images" --invert-grep)
+          fi
+
+          # Handle empty changelog
+          if [ -z "$CHANGELOG" ]; then
+            CHANGELOG="- No user-facing changes in this release"
+          fi
+
+          # Write to file to preserve newlines
+          echo "$CHANGELOG" > changelog.txt
+
+      - name: Detect IAM/permission changes
+        id: iam_changes
+        run: |
+          IAM_FILES="iam.tf docs/iam.md docs/detailed_iam_reference.md docs/terraform_service_account_permissions.md"
+
+          if [ -n "${{ steps.prev_tag.outputs.tag }}" ]; then
+            # Check if any IAM-related files changed between tags
+            CHANGED_FILES=$(git diff --name-only "${{ steps.prev_tag.outputs.tag }}..${RELEASE_TAG}" -- $IAM_FILES 2>/dev/null || true)
+
+            if [ -n "$CHANGED_FILES" ]; then
+              echo "has_changes=true" >> $GITHUB_OUTPUT
+
+              # Get commits that touched IAM files
+              IAM_COMMITS=$(git log --pretty=format:"- %s (%h)" \
+                "${{ steps.prev_tag.outputs.tag }}..${RELEASE_TAG}" \
+                --grep="Update GCP runner, proxy, prometheus, and node-exporter images" --invert-grep \
+                -- $IAM_FILES)
+
+              echo "$IAM_COMMITS" > iam_changelog.txt
+              echo "Changed files: $CHANGED_FILES"
+            else
+              echo "has_changes=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create release tarball
+        run: |
+          # Create tarball in /tmp to avoid "file changed as we read it" error
+          tar --exclude='.git' \
+              --exclude='.github' \
+              --exclude='.devcontainer' \
+              --exclude='.cursor' \
+              --exclude='tests' \
+              --exclude='.pre-commit-config.yaml' \
+              --exclude='changelog.txt' \
+              --exclude='iam_changelog.txt' \
+              --exclude='release_body.md' \
+              -czvf /tmp/terraform-google-ona-runner-${RELEASE_TAG}.tar.gz .
+          mv /tmp/terraform-google-ona-runner-${RELEASE_TAG}.tar.gz .
+
+      - name: Build release body
+        id: body
+        run: |
+          cat << 'EOF' > release_body.md
+          ## Container Images
+
+          | Component | Image |
+          |-----------|-------|
+          | Runner | `${{ steps.manifest.outputs.runner_image }}` |
+          | Proxy | `${{ steps.manifest.outputs.proxy_image }}` |
+          | Prometheus | `${{ steps.manifest.outputs.prometheus_image }}` |
+          | Node Exporter | `${{ steps.manifest.outputs.node_exporter_image }}` |
+
+          ## Assets
+
+          | Asset | URL |
+          |-------|-----|
+          | CLI Binary | `${{ steps.manifest.outputs.cli_url }}` |
+          | Supervisor Binary | `${{ steps.manifest.outputs.supervisor_url }}` |
+          | VM Image | `${{ steps.manifest.outputs.vm_image }}` |
+
+          EOF
+
+          # Add IAM changes section if there are any
+          if [ "${{ steps.iam_changes.outputs.has_changes }}" = "true" ]; then
+            cat << 'EOF' >> release_body.md
+          ## ⚠️ IAM/Permission Changes
+
+          This release includes changes to IAM roles or permissions. Review the following commits and update your IAM configuration if needed:
+
+          EOF
+            cat iam_changelog.txt >> release_body.md
+            echo "" >> release_body.md
+            echo "See [docs/iam.md](docs/iam.md) and [docs/terraform_service_account_permissions.md](docs/terraform_service_account_permissions.md) for the updated permission requirements." >> release_body.md
+            echo "" >> release_body.md
+          fi
+
+          cat << 'EOF' >> release_body.md
+          ## Changelog
+
+          EOF
+          cat changelog.txt >> release_body.md
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: ${{ env.RELEASE_TAG }}
+          body_path: release_body.md
+          files: |
+            terraform-google-ona-runner-${{ env.RELEASE_TAG }}.tar.gz
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # pin@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_POOL }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Publish release notification
+        run: |
+          MANIFEST=$(curl -sf https://storage.googleapis.com/gitpod-runner-releases/gcp/stable/manifest.json)
+
+          # Build enriched payload with terraform module changes
+          PAYLOAD=$(echo "$MANIFEST" | jq \
+            --arg iam_changes "${{ steps.iam_changes.outputs.has_changes }}" \
+            --rawfile changelog changelog.txt \
+            '. + {
+              terraform_changes: ($changelog | split("\n") | map(select(. != ""))),
+              iam_changes_detected: ($iam_changes == "true")
+            }')
+
+          gcloud pubsub topics publish gcp-runner-releases \
+            --project=gitpod-next-production \
+            --message="$PAYLOAD" \
+            --attribute="event_type=release.stable,version=${RELEASE_TAG},source=ci_stable_promotion"

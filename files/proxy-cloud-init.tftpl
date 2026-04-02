@@ -1,0 +1,1038 @@
+#cloud-config
+
+# Cloud-init configuration for GCP Proxy on Container-Optimized OS
+# COS has read-only filesystem, so we use writable locations and systemctl user services
+
+write_files:
+  # Docker daemon proxy configuration (cloud-init will write to /etc on boot)
+  # Note: Docker daemon requires uppercase environment variables
+  - path: /etc/systemd/system/docker.service.d/http-proxy.conf
+    permissions: '0644'
+    content: |
+      [Service]
+      Environment="http_proxy=${HTTP_PROXY}"
+      Environment="https_proxy=${HTTPS_PROXY}"
+      Environment="all_proxy=${ALL_PROXY}"
+      Environment="no_proxy=${NO_PROXY}"
+%{ if CA_ENABLED ~}
+      Environment="SSL_CERT_FILE=/var/lib/gitpod/certs/gitpod-custom-ca.crt"
+      Environment="CURL_CA_BUNDLE=/var/lib/gitpod/certs/gitpod-custom-ca.crt"
+%{ endif ~}
+
+  # CA certificate download script
+  - path: /var/lib/gitpod/scripts/download-ca.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      
+      # Create certs directory
+      mkdir -p /var/lib/gitpod/certs
+      
+%{ if CA_ENABLED ~}
+      echo "Downloading CA certificate from GCS..."
+      
+      # Ensure the target file doesn't exist as a directory
+      rm -rf /var/lib/gitpod/certs/gitpod-custom-ca.crt
+      
+      # Get access token from metadata service
+      echo "Getting access token for GCS API..."
+      ACCESS_TOKEN=$(curl -s -f -H "Metadata-Flavor: Google" \
+        "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token" | \
+        jq -r '.access_token // empty')
+      
+      if [ -z "$ACCESS_TOKEN" ]; then
+        echo "Failed to get access token from metadata service"
+        exit 1
+      fi
+      
+      # Download CA certificate from GCS using Storage API
+      echo "Downloading CA certificate from GCS bucket: ${CA_BUCKET_NAME}/${CA_OBJECT_NAME}"
+      TEMP_CA_FILE="/tmp/gitpod-custom-ca.crt.$$"
+      GCS_API_URL="https://storage.googleapis.com/storage/v1/b/${CA_BUCKET_NAME}/o/${CA_OBJECT_NAME}?alt=media"
+      
+      if curl -s -f -H "Authorization: Bearer $ACCESS_TOKEN" "$GCS_API_URL" -o "$TEMP_CA_FILE"; then
+        echo "CA certificate downloaded successfully to temp file"
+        
+        # Verify the downloaded file is not empty
+        if [ -s "$TEMP_CA_FILE" ]; then
+          # Move to final location
+          mv "$TEMP_CA_FILE" /var/lib/gitpod/certs/gitpod-custom-ca.crt
+          chmod 644 /var/lib/gitpod/certs/gitpod-custom-ca.crt
+          
+          # Verify the certificate is valid PEM format
+          if openssl x509 -in /var/lib/gitpod/certs/gitpod-custom-ca.crt -text -noout > /dev/null 2>&1; then
+            echo "CA certificate validation successful"
+          else
+            echo "Warning: CA certificate validation failed, but continuing..."
+          fi
+        else
+          echo "Downloaded CA certificate file is empty"
+          rm -f "$TEMP_CA_FILE"
+          exit 1
+        fi
+      else
+        echo "Failed to download CA certificate from GCS using Storage API"
+        rm -f "$TEMP_CA_FILE"
+        exit 1
+      fi
+%{ else ~}
+      echo "No CA certificate configured, skipping download"
+      # Create empty file to prevent errors in scripts that expect it
+      touch /var/lib/gitpod/certs/gitpod-custom-ca.crt
+      chmod 0644 /var/lib/gitpod/certs/gitpod-custom-ca.crt
+%{ endif ~}
+
+  # Docker config download script
+  - path: /var/lib/gitpod/scripts/download-docker-config.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      
+      # Create Docker config directory in writable location (COS has read-only filesystem)
+      mkdir -p /var/lib/gitpod/docker-config
+      
+%{ if DOCKER_CONFIG_ENABLED ~}
+      echo "Downloading Docker config from GCS..."
+      
+      # Ensure the target file doesn't exist as a directory
+      rm -rf /var/lib/gitpod/docker-config/config.json
+      
+      # Get access token from metadata service
+      echo "Getting access token for GCS API..."
+      ACCESS_TOKEN=$(curl -s -f -H "Metadata-Flavor: Google" \
+        "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token" | \
+        jq -r '.access_token // empty')
+      
+      if [ -z "$ACCESS_TOKEN" ]; then
+        echo "Failed to get access token from metadata service"
+        exit 1
+      fi
+      
+      # Download Docker config from GCS using Storage API
+      echo "Downloading Docker config from GCS bucket: ${DOCKER_CONFIG_BUCKET_NAME}/${DOCKER_CONFIG_OBJECT_NAME}"
+      TEMP_CONFIG_FILE="/tmp/docker-config.json.$$"
+      GCS_API_URL="https://storage.googleapis.com/storage/v1/b/${DOCKER_CONFIG_BUCKET_NAME}/o/${DOCKER_CONFIG_OBJECT_NAME}?alt=media"
+      
+      if curl -s -f -H "Authorization: Bearer $ACCESS_TOKEN" "$GCS_API_URL" -o "$TEMP_CONFIG_FILE"; then
+        echo "Docker config downloaded successfully to temp file"
+        
+        # Verify the downloaded file is not empty and is valid JSON
+        if [ -s "$TEMP_CONFIG_FILE" ]; then
+          if jq empty "$TEMP_CONFIG_FILE" 2>/dev/null; then
+            # Move to final location
+            mv "$TEMP_CONFIG_FILE" /var/lib/gitpod/docker-config/config.json
+            chmod 600 /var/lib/gitpod/docker-config/config.json
+            
+            echo "Docker config stored at /var/lib/gitpod/docker-config/config.json"
+            echo "Docker commands will use --config flag to access this config"
+            
+            echo "Docker config validation successful"
+          else
+            echo "Downloaded Docker config is not valid JSON"
+            rm -f "$TEMP_CONFIG_FILE"
+            exit 1
+          fi
+        else
+          echo "Downloaded Docker config file is empty"
+          rm -f "$TEMP_CONFIG_FILE"
+          exit 1
+        fi
+      else
+        echo "Failed to download Docker config from GCS using Storage API"
+        rm -f "$TEMP_CONFIG_FILE"
+        exit 1
+      fi
+%{ else ~}
+      echo "No Docker config configured, skipping download"
+%{ endif ~}
+
+  # Insecure registries configuration script
+  - path: /var/lib/gitpod/scripts/configure-insecure-registries.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      
+      DAEMON_JSON_PATH="/etc/docker/daemon.json"
+      
+%{ if INSECURE_REGISTRIES_ENABLED ~}
+      echo "Configuring insecure registries..."
+      
+      # Create /etc/docker directory if it doesn't exist
+      mkdir -p /etc/docker
+      
+      # Parse the insecure registries JSON array
+      INSECURE_REGISTRIES='${INSECURE_REGISTRIES_JSON}'
+      
+      if [ "$INSECURE_REGISTRIES" != "[]" ] && [ "$INSECURE_REGISTRIES" != "" ]; then
+        echo "Adding insecure registries: $INSECURE_REGISTRIES"
+        
+        # Check if daemon.json exists and is valid JSON
+        if [ -f "$DAEMON_JSON_PATH" ]; then
+          echo "Existing daemon.json found, merging insecure registries..."
+          
+          # Validate existing JSON
+          if ! jq empty "$DAEMON_JSON_PATH" 2>/dev/null; then
+            echo "Warning: Existing daemon.json is not valid JSON, backing up and creating new one"
+            cp "$DAEMON_JSON_PATH" "$${DAEMON_JSON_PATH}.backup.$(date +%s)"
+            echo '{}' > "$DAEMON_JSON_PATH"
+          fi
+          
+          # Merge insecure registries with existing configuration
+          TEMP_JSON=$(mktemp)
+          jq --argjson new_registries "$INSECURE_REGISTRIES" '
+            .["insecure-registries"] = (
+              (.["insecure-registries"] // []) + $new_registries | unique
+            )
+          ' "$DAEMON_JSON_PATH" > "$TEMP_JSON"
+          
+          mv "$TEMP_JSON" "$DAEMON_JSON_PATH"
+        else
+          echo "Creating new daemon.json with insecure registries..."
+          jq -n --argjson registries "$INSECURE_REGISTRIES" '
+            {"insecure-registries": $registries}
+          ' > "$DAEMON_JSON_PATH"
+        fi
+        
+        echo "daemon.json updated successfully"
+        cat "$DAEMON_JSON_PATH"
+      else
+        echo "No insecure registries to configure"
+      fi
+%{ else ~}
+      echo "Insecure registries not enabled, skipping configuration"
+%{ endif ~}
+
+
+
+  # Prometheus configuration template
+  - path: /var/lib/prometheus/prometheus-template.yml
+    permissions: '0644'
+    content: |
+      global:
+        scrape_interval: 15s
+        scrape_timeout: 10s
+        evaluation_interval: 15s
+        external_labels:
+          project_id: ${PROJECT_ID}
+          region: ${REGION}
+          runner_name: ${RUNNER_ID}
+          instance: "{{INSTANCE_NAME}}"
+
+      scrape_configs:
+        - job_name: "gcp_proxy"
+          static_configs:
+            - targets: ["localhost:9090"]
+              labels:
+                instance: "{{INSTANCE_NAME}}"
+                service: "proxy"
+          scrape_interval: 15s
+          metrics_path: /metrics
+
+        - job_name: "prometheus"
+          static_configs:
+            - targets: ["localhost:9093"]
+              labels:
+                instance: "{{INSTANCE_NAME}}"
+                service: "prometheus"
+
+        - job_name: "node-exporter"
+          static_configs:
+            - targets: ["localhost:9100"]
+              labels:
+                instance: "{{INSTANCE_NAME}}"
+                service: "node-exporter"
+
+      # Remote write configuration will be appended here if enabled
+      {{REMOTE_WRITE_CONFIG}}
+
+  # Prometheus secrets configuration file
+  - path: /var/lib/prometheus/secrets.env
+    permissions: '0600'
+    content: |
+      METRICS_SECRET_ID="${METRICS_SECRET_ID}"
+      PROJECT_ID="${PROJECT_ID}"
+
+
+
+  # Enhanced Prometheus service with better resource limits
+  - path: /var/lib/systemd/system/prometheus.service
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=Prometheus Server Container
+      Documentation=https://prometheus.io/docs/introduction/overview/
+      After=docker.service
+      Requires=docker.service
+
+      [Service]
+      Type=simple
+      Restart=always
+      RestartSec=5s
+      TimeoutStartSec=60s
+      ExecStartPre=-/usr/bin/docker stop prometheus
+      ExecStartPre=-/usr/bin/docker rm prometheus
+      ExecStart=/usr/bin/docker%{ if DOCKER_CONFIG_ENABLED } --config /var/lib/gitpod/docker-config%{ endif } run --rm --name prometheus \
+        --network host \
+        --hostname %H \
+        --volume /var/lib/prometheus:/etc/prometheus:ro \
+        --volume /var/lib/prometheus/data:/prometheus \
+%{ if CA_ENABLED ~}
+        --volume /var/lib/gitpod/certs/gitpod-custom-ca.crt:/etc/ssl/certs/gitpod-trust-bundle.crt:ro \
+%{ endif ~}
+        --user 65534:65534 \
+%{ if HTTP_PROXY != "" ~}
+        --env HTTP_PROXY=${HTTP_PROXY} \
+        --env http_proxy=${HTTP_PROXY} \
+%{ endif ~}
+%{ if HTTPS_PROXY != "" ~}
+        --env HTTPS_PROXY=${HTTPS_PROXY} \
+        --env https_proxy=${HTTPS_PROXY} \
+%{ endif ~}
+%{ if NO_PROXY != "" ~}
+        --env NO_PROXY=${NO_PROXY},localhost,127.0.0.1,googleapis.com,metadata.google.internal,${PROXY_DOMAIN} \
+        --env no_proxy=${NO_PROXY},localhost,127.0.0.1,googleapis.com,metadata.google.internal,${PROXY_DOMAIN} \
+%{ else ~}
+        --env NO_PROXY=localhost,127.0.0.1,googleapis.com,metadata.google.internal,${PROXY_DOMAIN} \
+        --env no_proxy=localhost,127.0.0.1,googleapis.com,metadata.google.internal,${PROXY_DOMAIN} \
+%{ endif ~}
+        ${PROMETHEUS_IMAGE} \
+        --config.file=/etc/prometheus/prometheus.yml \
+        --storage.tsdb.path=/prometheus \
+        --storage.tsdb.retention.time=7d \
+        --web.console.libraries=/usr/share/prometheus/console_libraries \
+        --web.console.templates=/usr/share/prometheus/consoles \
+        --web.listen-address=127.0.0.1:9093 \
+        --web.enable-lifecycle \
+        --web.enable-remote-write-receiver
+
+      ExecStop=/usr/bin/docker stop prometheus
+      TimeoutStopSec=45s
+      KillMode=mixed
+      SyslogIdentifier=prometheus
+
+      [Install]
+      WantedBy=multi-user.target
+
+  # Node Exporter service for system metrics
+  - path: /var/lib/systemd/system/node-exporter.service
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=Node Exporter
+      Documentation=https://prometheus.io/docs/guides/node-exporter/
+      After=docker.service
+      Requires=docker.service
+
+      [Service]
+      Type=simple
+      Restart=always
+      RestartSec=5s
+      TimeoutStartSec=60s
+      ExecStartPre=-/usr/bin/docker stop node-exporter
+      ExecStartPre=-/usr/bin/docker rm node-exporter
+      ExecStart=/usr/bin/docker%{ if DOCKER_CONFIG_ENABLED } --config /var/lib/gitpod/docker-config%{ endif } run --rm --name node-exporter \
+        --network host \
+        --pid host \
+        --volume /:/host:ro,rslave \
+%{ if CA_ENABLED ~}
+        --volume /var/lib/gitpod/certs/gitpod-custom-ca.crt:/etc/ssl/certs/gitpod-trust-bundle.crt:ro \
+%{ endif ~}
+        --user 65534:65534 \
+%{ if HTTP_PROXY != "" ~}
+        --env HTTP_PROXY=${HTTP_PROXY} \
+        --env http_proxy=${HTTP_PROXY} \
+%{ endif ~}
+%{ if HTTPS_PROXY != "" ~}
+        --env HTTPS_PROXY=${HTTPS_PROXY} \
+        --env https_proxy=${HTTPS_PROXY} \
+%{ endif ~}
+%{ if NO_PROXY != "" ~}
+        --env NO_PROXY=${NO_PROXY} \
+        --env no_proxy=${NO_PROXY} \
+%{ else ~}
+        --env NO_PROXY=localhost,127.0.0.1,googleapis.com,metadata.google.internal,${PROXY_DOMAIN} \
+        --env no_proxy=localhost,127.0.0.1,googleapis.com,metadata.google.internal,${PROXY_DOMAIN} \
+%{ endif ~}
+        prom/node-exporter:latest \
+        --path.rootfs=/host \
+        --web.listen-address=127.0.0.1:9100 \
+        --collector.filesystem.mount-points-exclude='^/(sys|proc|dev|host|etc|rootfs/var/lib/docker/containers|rootfs/var/lib/docker/overlay2|rootfs/run/docker/netns|rootfs/var/lib/docker/aufs)($$|/)'
+
+      ExecStop=/usr/bin/docker stop node-exporter
+      TimeoutStopSec=45s
+      KillMode=mixed
+      SyslogIdentifier=node-exporter
+
+      [Install]
+      WantedBy=multi-user.target
+
+  # Clean and intuitive Prometheus configuration updater
+  - path: /var/lib/gitpod/update-prometheus-config.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+
+      # Load configuration
+      source /var/lib/prometheus/secrets.env
+
+      # Logging function
+      log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a /var/log/prometheus-config-updater.log; }
+
+      log "Starting Prometheus configuration update..."
+
+      # Get hostname for instance identification
+      INSTANCE_NAME=$(hostname)
+      log "Instance name: $INSTANCE_NAME"
+
+      # Fetch secrets configuration using REST API
+      SECRET_DATA=""
+      log "Fetching metrics configuration from secret: $METRICS_SECRET_ID"
+      
+      # Get access token from metadata service
+      ACCESS_TOKEN=$(curl -s -f -H "Metadata-Flavor: Google" \
+        "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token" | \
+        jq -r '.access_token // empty')
+      
+      if [ -n "$ACCESS_TOKEN" ]; then
+          # Secret Manager API endpoint
+          API_URL="https://secretmanager.googleapis.com/v1/projects/$PROJECT_ID/secrets/$METRICS_SECRET_ID/versions/latest:access"
+          
+          # Get secret data using REST API
+          SECRET_RESPONSE=$(curl -s -f -H "Authorization: Bearer $ACCESS_TOKEN" "$API_URL" 2>/dev/null)
+          
+          if [ $? -eq 0 ] && [ -n "$SECRET_RESPONSE" ]; then
+              # Extract and decode the secret payload
+              SECRET_PAYLOAD=$(echo "$SECRET_RESPONSE" | jq -r '.payload.data // empty')
+              if [ -n "$SECRET_PAYLOAD" ]; then
+                  SECRET_DATA=$(echo "$SECRET_PAYLOAD" | base64 -d)
+                  log "Successfully fetched metrics configuration from secret"
+              else
+                  log "Failed to extract secret payload"
+                  SECRET_DATA='{"enableMetrics":false,"url":"","user":"","password":""}'
+              fi
+          else
+              log "Failed to access secret via API, using defaults"
+              SECRET_DATA='{"enableMetrics":false,"url":"","user":"","password":""}'
+          fi
+      else
+          log "Failed to get access token, using defaults"
+          SECRET_DATA='{"enableMetrics":false,"url":"","user":"","password":""}'
+      fi
+
+      # Parse JSON configuration
+      ENABLE_METRICS=$(echo "$SECRET_DATA" | jq -r '.enableMetrics // false')
+      REMOTE_URL=$(echo "$SECRET_DATA" | jq -r '.url // ""')
+      REMOTE_USER=$(echo "$SECRET_DATA" | jq -r '.user // ""')
+      REMOTE_PASSWORD=$(echo "$SECRET_DATA" | jq -r '.password // ""')
+
+      log "Metrics enabled: $ENABLE_METRICS, URL: $REMOTE_URL"
+
+      # Generate final configuration using template substitution
+      sed -e "s/{{INSTANCE_NAME}}/$INSTANCE_NAME/g" \
+          /var/lib/prometheus/prometheus-template.yml > /tmp/prometheus.yml.new
+
+      # Add remote write configuration if metrics are enabled
+      if [ "$ENABLE_METRICS" = "true" ] && [ -n "$REMOTE_URL" ]; then
+          log "Adding remote write configuration"
+          
+          # Remove the placeholder line
+          sed -i '/{{REMOTE_WRITE_CONFIG}}/d' /tmp/prometheus.yml.new
+          
+          # Add remote write configuration using echo
+          echo "" >> /tmp/prometheus.yml.new
+          echo "remote_write:" >> /tmp/prometheus.yml.new
+          echo "  - url: $REMOTE_URL" >> /tmp/prometheus.yml.new
+          
+          # Add basic auth if credentials are provided
+          if [ -n "$REMOTE_USER" ] && [ -n "$REMOTE_PASSWORD" ]; then
+              echo "    basic_auth:" >> /tmp/prometheus.yml.new
+              echo "      username: $REMOTE_USER" >> /tmp/prometheus.yml.new
+              echo "      password: $REMOTE_PASSWORD" >> /tmp/prometheus.yml.new
+          fi
+      else
+          # Remove the placeholder line when metrics are disabled
+          sed -i '/{{REMOTE_WRITE_CONFIG}}/d' /tmp/prometheus.yml.new
+      fi
+
+      # Check if configuration changed
+      if [ -f /var/lib/prometheus/prometheus.yml ] && cmp -s /tmp/prometheus.yml.new /var/lib/prometheus/prometheus.yml; then
+          log "Configuration unchanged, skipping update"
+          rm /tmp/prometheus.yml.new
+          exit 0
+      fi
+
+      # Apply configuration atomically
+      mv /tmp/prometheus.yml.new /var/lib/prometheus/prometheus.yml
+      log "Updated Prometheus configuration"
+
+      # Reload Prometheus gracefully
+      if systemctl is-active --quiet prometheus.service; then
+          log "Reloading Prometheus..."
+          if timeout 10 curl -sf -X POST http://127.0.0.1:9093/-/reload 2>/dev/null; then
+              log "Successfully reloaded Prometheus"
+          else
+              log "Reload failed, restarting Prometheus service..."
+              systemctl restart prometheus.service
+          fi
+      else
+          log "Prometheus not running, configuration ready for next start"
+      fi
+
+      log "Configuration update completed"
+
+  # Systemd service for monitoring metrics secret and updating Prometheus
+  - path: /var/lib/systemd/system/prometheus-config-updater.service
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=Prometheus Configuration Updater
+      Documentation=https://prometheus.io/docs/introduction/overview/
+      After=docker.service
+      Requires=docker.service
+
+      [Service]
+      Type=oneshot
+      ExecStart=/bin/bash /var/lib/gitpod/update-prometheus-config.sh
+      User=root
+      Group=root
+
+  # Timer for periodic configuration updates (every 10 minutes)
+  - path: /var/lib/systemd/system/prometheus-config-updater.timer
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=Run Prometheus Configuration Updater every 10 minutes
+      Requires=prometheus-config-updater.service
+
+      [Timer]
+      OnBootSec=2min
+      OnUnitActiveSec=10min
+      AccuracySec=1min
+
+      [Install]
+      WantedBy=timers.target
+
+%{ if CERTIFICATE_SECRET_ID != "" ~}
+  # Certificate refresh script - polls Secret Manager and updates cert files on disk
+  - path: /var/lib/gitpod/scripts/cert-refresh.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+
+      LOG_TAG="cert-refresh"
+      log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] [$LOG_TAG] $*"; }
+
+      CERT_FILE="/var/lib/gitpod/tls/cert.pem"
+      KEY_FILE="/var/lib/gitpod/tls/key.pem"
+      SECRET_NAME=$(echo "${CERTIFICATE_SECRET_ID}" | cut -d'/' -f4)
+      SECRET_PROJECT=$(echo "${CERTIFICATE_SECRET_ID}" | cut -d'/' -f2)
+
+      # Get access token from metadata service
+      ACCESS_TOKEN=$(curl -s -f -H "Metadata-Flavor: Google" \
+        "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token" | \
+        awk -F'"access_token":"' '{if(NF>1) print $2}' | awk -F'"' '{print $1}')
+
+      if [ -z "$ACCESS_TOKEN" ]; then
+        log "ERROR: Failed to get access token"
+        exit 1
+      fi
+
+      # Fetch latest secret version
+      API_URL="https://secretmanager.googleapis.com/v1/projects/$SECRET_PROJECT/secrets/$SECRET_NAME/versions/latest:access"
+      SECRET_DATA=$(curl -s -f -H "Authorization: Bearer $ACCESS_TOKEN" "$API_URL" 2>/dev/null)
+
+      if [ $? -ne 0 ] || [ -z "$SECRET_DATA" ]; then
+        log "ERROR: Failed to fetch secret from Secret Manager"
+        exit 1
+      fi
+
+      # Extract and decode the payload
+      SECRET_PAYLOAD=$(echo "$SECRET_DATA" | jq -r '.payload.data // empty')
+      if [ -z "$SECRET_PAYLOAD" ]; then
+        log "ERROR: Empty secret payload"
+        exit 1
+      fi
+
+      DECODED_SECRET=$(echo "$SECRET_PAYLOAD" | base64 -d)
+      NEW_CERT=$(echo "$DECODED_SECRET" | jq -r '.certificate // empty' | sed 's/\\n/\n/g')
+      NEW_KEY=$(echo "$DECODED_SECRET" | jq -r '.privateKey // empty' | sed 's/\\n/\n/g')
+
+      if [ -z "$NEW_CERT" ] || [ -z "$NEW_KEY" ]; then
+        log "ERROR: Certificate or key is empty in secret"
+        exit 1
+      fi
+
+      # Compare with current cert on disk
+      if [ -f "$CERT_FILE" ]; then
+        CURRENT_CERT=$(cat "$CERT_FILE")
+        if [ "$CURRENT_CERT" = "$NEW_CERT" ]; then
+          log "Certificate unchanged, skipping update"
+          exit 0
+        fi
+      fi
+
+      log "Certificate changed, updating files..."
+
+      # Atomic replacement: write to temp files, then move
+      TEMP_CERT=$(mktemp /var/lib/gitpod/tls/.cert.pem.XXXXXX)
+      TEMP_KEY=$(mktemp /var/lib/gitpod/tls/.key.pem.XXXXXX)
+
+      echo "$NEW_CERT" > "$TEMP_CERT"
+      echo "$NEW_KEY" > "$TEMP_KEY"
+
+      # Validate the new certificate
+      if ! openssl x509 -in "$TEMP_CERT" -noout -text > /dev/null 2>&1; then
+        log "ERROR: New certificate is invalid PEM"
+        rm -f "$TEMP_CERT" "$TEMP_KEY"
+        exit 1
+      fi
+
+      # Set ownership and permissions for container access (appuser uid 1000)
+      chown 1000:1000 "$TEMP_CERT" "$TEMP_KEY"
+      chmod 600 "$TEMP_CERT" "$TEMP_KEY"
+
+      # Atomic move
+      mv "$TEMP_CERT" "$CERT_FILE"
+      mv "$TEMP_KEY" "$KEY_FILE"
+
+      log "Certificate files updated successfully"
+      # Log expiry for visibility
+      openssl x509 -in "$CERT_FILE" -noout -enddate 2>/dev/null | sed "s/^/  /" || true
+
+  # Certificate refresh systemd service (oneshot)
+  - path: /var/lib/systemd/system/cert-refresh.service
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=Certificate Refresh from Secret Manager
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      Type=oneshot
+      ExecStart=/bin/bash /var/lib/gitpod/scripts/cert-refresh.sh
+      User=root
+      Group=root
+      SyslogIdentifier=cert-refresh
+
+  # Certificate refresh timer (every 5 minutes)
+  - path: /var/lib/systemd/system/cert-refresh.timer
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=Run Certificate Refresh every 5 minutes
+      Requires=cert-refresh.service
+
+      [Timer]
+      OnBootSec=3min
+      OnUnitActiveSec=5min
+      AccuracySec=30s
+
+      [Install]
+      WantedBy=timers.target
+%{ endif ~}
+
+  # Proxy systemd service
+  - path: /var/lib/systemd/system/gitpod-proxy.service
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=Ona Proxy Container
+      Documentation=https://www.gitpod.io/docs/
+      After=docker.service
+      Requires=docker.service
+
+      [Service]
+      Type=simple
+      Restart=always
+      RestartSec=10s
+      ExecStartPre=-/usr/bin/docker stop gitpod-proxy
+      ExecStartPre=-/usr/bin/docker rm gitpod-proxy
+      ExecStart=/usr/bin/docker%{ if DOCKER_CONFIG_ENABLED } --config /var/lib/gitpod/docker-config%{ endif } run --rm --name gitpod-proxy \
+        --network host \
+        --volume /var/lib/gitpod/tls:/tmp/certs:rw \
+%{ if CA_ENABLED ~}
+        --volume /var/lib/gitpod/certs/gitpod-custom-ca.crt:/etc/ssl/certs/gitpod-trust-bundle.crt:ro \
+%{ endif ~}
+        -e PROXY_DOMAIN=${PROXY_DOMAIN} \
+        -e RUNNER_ID=${RUNNER_ID} \
+        -e GCP_PROJECT_ID=${PROJECT_ID} \
+        -e GCP_REGION=${REGION} \
+        -e LOG_LEVEL=info \
+        -e http_proxy=${HTTP_PROXY} \
+        -e https_proxy=${HTTPS_PROXY} \
+        -e no_proxy=${NO_PROXY} \
+        -e all_proxy=${ALL_PROXY} \
+        ${PROXY_IMAGE_URL} \
+        run-runner-proxy \
+        --runner-id=${RUNNER_ID} \
+        --public-domain=${PROXY_DOMAIN} \
+        --cert-dir=/tmp/certs \
+        --http-port=8080 \
+        --https-port=8443 \
+        --health-port=5000 \
+        --health-tls \
+        --management-plane-api-url=${API_ENDPOINT}
+      ExecStop=/usr/bin/docker stop gitpod-proxy
+      SyslogIdentifier=gitpod-proxy
+
+      [Install]
+      WantedBy=multi-user.target
+
+
+  # Container startup script
+  - path: /tmp/container-startup.sh
+    permissions: '0755'
+    content: |
+      #!/bin/sh
+      set -eu
+
+      echo "Setting up GCP proxy container on Container-Optimized OS"
+
+      # Get instance metadata for dynamic configuration
+      INSTANCE_NAME=$(curl -s "http://metadata.google.internal/computeMetadata/v1/instance/name" -H "Metadata-Flavor: Google")
+
+      echo "Instance: $${INSTANCE_NAME}"
+      echo "Proxy Domain: ${PROXY_DOMAIN}"
+      echo "Runner ID: ${RUNNER_ID}"
+
+      # Extract certificate for internal load balancer
+      echo "Extracting certificate for internal load balancer..."
+      
+      # Create TLS directory
+      echo "Creating TLS directory..."
+      mkdir -p /var/lib/gitpod/tls
+      # Set ownership and permissions for container access
+      # Container runs as appuser (uid 1000), so set ownership accordingly
+      chown 1000:1000 /var/lib/gitpod/tls
+      chmod 755 /var/lib/gitpod/tls
+            
+      
+%{ if CERTIFICATE_SECRET_ID != "" ~}
+      # Extract certificate from Secret Manager.
+      # This is best-effort at boot: if the cert isn't available yet (e.g. certbot
+      # hasn't issued it), the cert-refresh timer will pick it up later.
+      CERT_FETCH_OK=false
+      echo "Using Secret Manager for certificate and private key..."
+      
+      # Extract secret details
+      SECRET_NAME=$(echo "${CERTIFICATE_SECRET_ID}" | cut -d'/' -f4)
+      PROJECT_ID=$(echo "${CERTIFICATE_SECRET_ID}" | cut -d'/' -f2)
+      
+      echo "Extracting certificate from secret: $SECRET_NAME in project: $PROJECT_ID"
+      
+      # Get access token from metadata service
+      ACCESS_TOKEN=$(curl -s -H "Metadata-Flavor: Google" \
+        "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token" | \
+        awk -F'"access_token":"' '{if(NF>1) print $2}' | awk -F'"' '{print $1}')
+      
+      if [ -z "$ACCESS_TOKEN" ]; then
+        echo "⚠️ Failed to get access token from metadata service, cert-refresh timer will retry"
+      else
+        # Secret Manager API endpoint
+        API_URL="https://secretmanager.googleapis.com/v1/projects/$PROJECT_ID/secrets/$SECRET_NAME/versions/latest:access"
+        
+        # Get secret data using REST API
+        SECRET_DATA=$(curl -s -H "Authorization: Bearer $ACCESS_TOKEN" "$API_URL")
+        
+        if [ $? -eq 0 ] && [ -n "$SECRET_DATA" ]; then
+          echo "Secret retrieved successfully"
+          
+          # Extract the base64 encoded data from payload.data field (nested structure)
+          SECRET_PAYLOAD=$(echo "$SECRET_DATA" | jq -r '.payload.data // empty')
+          
+          echo "Secret payload length: $(echo "$SECRET_PAYLOAD" | wc -c)"
+          
+          if [ -n "$SECRET_PAYLOAD" ] && [ "$(echo "$SECRET_PAYLOAD" | wc -c)" -gt 10 ]; then
+            # Decode the secret (expecting JSON with certificate and privateKey fields)
+            DECODED_SECRET=$(echo "$SECRET_PAYLOAD" | base64 -d)
+            echo "Secret decoded successfully"
+            echo "Decoded secret preview: $(echo "$DECODED_SECRET" | head -c 100)..."
+
+            # Extract certificate and private key from JSON using jq (more reliable)
+            CERTIFICATE=$(echo "$DECODED_SECRET" | jq -r '.certificate // empty' | sed 's/\\n/\n/g')
+            PRIVATE_KEY=$(echo "$DECODED_SECRET" | jq -r '.privateKey // empty' | sed 's/\\n/\n/g')
+            
+            if [ -n "$CERTIFICATE" ] && [ -n "$PRIVATE_KEY" ]; then
+              echo "Certificate length: $(echo "$CERTIFICATE" | wc -c) characters"
+              echo "Private key length: $(echo "$PRIVATE_KEY" | wc -c) characters"
+              echo "Certificate starts with: $(echo "$CERTIFICATE" | head -c 50)..."
+              
+              # Write certificate and private key to files
+              echo "$CERTIFICATE" > /var/lib/gitpod/tls/cert.pem
+              echo "$PRIVATE_KEY" > /var/lib/gitpod/tls/key.pem
+              
+              # Validate the certificate format
+              if echo "$CERTIFICATE" | openssl x509 -noout -text > /dev/null 2>&1; then
+                echo "✅ Certificate validation successful"
+                CERT_FETCH_OK=true
+              else
+                echo "⚠️ Certificate validation failed - invalid PEM format, cert-refresh timer will retry"
+                echo "Certificate content preview:"
+                echo "$CERTIFICATE" | head -10
+                rm -f /var/lib/gitpod/tls/cert.pem /var/lib/gitpod/tls/key.pem
+              fi
+              
+              if [ "$CERT_FETCH_OK" = true ]; then
+                # Set basic readable permissions - let container handle security
+                echo "Setting up certificate files with basic permissions..."
+                echo "Container will set proper permissions via rw mount"
+                
+                chown 1000:1000 /var/lib/gitpod/tls/cert.pem /var/lib/gitpod/tls/key.pem
+                chmod 600 /var/lib/gitpod/tls/cert.pem
+                chmod 600 /var/lib/gitpod/tls/key.pem
+                
+                echo "Files created with 600/600 permissions for container access:"
+                ls -la /var/lib/gitpod/tls/
+                
+                echo "Certificate and private key extracted successfully from Secret Manager"
+              fi
+            else
+              echo "⚠️ Failed to extract certificate or private key from secret, cert-refresh timer will retry"
+              echo "Expected JSON format: {\"certificate\":\"...\",\"privateKey\":\"...\"}"
+            fi
+          else
+            echo "⚠️ Secret has no payload (may not have been issued yet), cert-refresh timer will retry"
+          fi
+        else
+          echo "⚠️ Failed to retrieve secret from Secret Manager, cert-refresh timer will retry"
+        fi
+      fi
+
+      if [ "$CERT_FETCH_OK" = false ]; then
+        echo "⚠️ Certificate not available at boot time. The cert-refresh timer will fetch it once available."
+      fi
+%{ endif ~}
+
+      # Pull Docker image with retry logic
+      echo "Pulling Docker image..."
+
+      pull_with_retry() {
+          local image=$1
+          local max_attempts=5
+          local delay=10
+
+          for attempt in $(seq 1 $max_attempts); do
+              echo "Attempting to pull $image (attempt $attempt/$max_attempts)"
+              if docker%{ if DOCKER_CONFIG_ENABLED } --config /var/lib/gitpod/docker-config%{ endif } pull "$image"; then
+                  echo "✓ Successfully pulled $image"
+                  return 0
+              else
+                  echo "✗ Failed to pull $image (attempt $attempt/$max_attempts)"
+                  if [ $attempt -lt $max_attempts ]; then
+                      echo "Waiting $delay seconds before retry..."
+                      sleep $delay
+                      delay=$((delay * 2))  # Exponential backoff
+                  fi
+              fi
+          done
+
+          echo "✗ Failed to pull $image after $max_attempts attempts"
+          return 1
+      }
+
+      pull_with_retry "${PROXY_IMAGE_URL}"
+
+      # Restart Docker daemon to apply proxy settings
+      echo "Restarting Docker daemon to apply proxy configuration..."
+      systemctl daemon-reload
+      systemctl restart docker
+      
+      # Wait for Docker to be ready
+      for i in {1..30}; do
+          if systemctl is-active --quiet docker && docker info >/dev/null 2>&1; then
+              echo "Docker daemon restarted successfully with proxy configuration"
+              break
+          fi
+          echo "Waiting for Docker daemon to be ready... ($i/30)"
+          sleep 2
+      done
+      
+      # Final verification
+      if ! systemctl is-active --quiet docker; then
+          echo "Failed to restart Docker daemon with proxy configuration"
+          exit 1
+      fi
+
+      # Link systemd services from /var to system location (COS allows this)
+      ln -sf /var/lib/systemd/system/gitpod-proxy.service /etc/systemd/system/gitpod-proxy.service
+      ln -sf /var/lib/systemd/system/prometheus.service /etc/systemd/system/prometheus.service
+      ln -sf /var/lib/systemd/system/node-exporter.service /etc/systemd/system/node-exporter.service
+      ln -sf /var/lib/systemd/system/prometheus-config-updater.service /etc/systemd/system/prometheus-config-updater.service
+      ln -sf /var/lib/systemd/system/prometheus-config-updater.timer /etc/systemd/system/prometheus-config-updater.timer
+%{ if CERTIFICATE_SECRET_ID != "" ~}
+      ln -sf /var/lib/systemd/system/cert-refresh.service /etc/systemd/system/cert-refresh.service
+      ln -sf /var/lib/systemd/system/cert-refresh.timer /etc/systemd/system/cert-refresh.timer
+%{ endif ~}
+
+      # Create Prometheus data directory
+      mkdir -p /var/lib/prometheus/data
+      chown 65534:65534 /var/lib/prometheus/data
+
+      # Generate Prometheus configuration BEFORE starting services
+      echo "Generating initial Prometheus configuration..."
+      if /var/lib/gitpod/update-prometheus-config.sh; then
+          echo "✓ Prometheus configuration generated successfully"
+      else
+          echo "⚠ Config generation failed, creating basic config..."
+          # Create basic config if dynamic generation fails
+          sed -e "s/{{INSTANCE_NAME}}/$(hostname)/g" \
+              -e "s|{{REMOTE_WRITE_CONFIG}}||g" \
+              /var/lib/prometheus/prometheus-template.yml > /var/lib/prometheus/prometheus.yml
+          
+          # Set proper ownership
+          chown 65534:65534 /var/lib/prometheus/prometheus.yml
+          echo "✓ Basic Prometheus configuration created"
+      fi
+
+      # Reload systemd and enable services
+      systemctl daemon-reload
+      systemctl enable gitpod-proxy
+      systemctl enable prometheus
+      systemctl enable node-exporter
+      systemctl enable prometheus-config-updater.timer
+%{ if CERTIFICATE_SECRET_ID != "" ~}
+      systemctl enable cert-refresh.timer
+%{ endif ~}
+
+      # Start services (config is now ready)
+      echo "Starting Ona Proxy..."
+      systemctl start gitpod-proxy
+
+      echo "Starting Prometheus..."
+      systemctl start prometheus
+      
+      echo "Starting Node Exporter..."
+      systemctl start node-exporter
+      
+      echo "Starting Prometheus Config Updater Timer..."
+      systemctl start prometheus-config-updater.timer
+
+%{ if CERTIFICATE_SECRET_ID != "" ~}
+      echo "Starting Certificate Refresh Timer..."
+      systemctl start cert-refresh.timer
+%{ endif ~}
+
+      # Wait for service to be ready
+      echo "Waiting for service to start..."
+      for i in {1..30}; do
+          if systemctl is-active --quiet gitpod-proxy; then
+              echo "✓ Proxy service is running!"
+              break
+          fi
+          echo "Waiting for proxy service... ($${i}/30)"
+          sleep 2
+      done
+
+      # Health checks
+      if curl -s -k "https://localhost:5000/_health" >/dev/null 2>&1; then
+          echo "✓ Proxy health endpoint is accessible (HTTPS)"
+      else
+          echo "✗ Proxy health check failed (HTTPS)"
+      fi
+
+      if curl -s "http://localhost:8080" >/dev/null 2>&1; then
+          echo "✓ Proxy HTTP port is accessible"
+      else
+          echo "✗ Proxy HTTP port check failed"
+      fi
+
+      if curl -s -k "https://localhost:8443" >/dev/null 2>&1; then
+          echo "✓ Proxy HTTPS port is accessible"
+      else
+          echo "✗ Proxy HTTPS port check failed"
+      fi
+
+      # Wait for Prometheus to be ready
+      echo "Waiting for Prometheus to be ready..."
+      for i in {1..30}; do
+          if curl -s "http://localhost:9093/-/ready" >/dev/null 2>&1; then
+              echo "✓ Prometheus is ready"
+              break
+          fi
+          echo "Waiting for Prometheus... ($${i}/30)"
+          sleep 2
+      done
+
+      if curl -s "http://localhost:9093/metrics" >/dev/null 2>&1; then
+          echo "✓ Prometheus metrics endpoint is accessible"
+      else
+          echo "✗ Prometheus metrics endpoint check failed"
+      fi
+
+      echo "Proxy and Prometheus setup complete!"
+      echo "Services:"
+      echo "- Proxy HTTP: running on port 8080"
+      echo "- Proxy HTTPS: running on port 8443"
+      echo "- Health endpoint: running on port 5000 (HTTPS with TLS)"
+      echo "- Prometheus: running on port 9093"
+      echo ""
+      echo "Management commands:"
+      echo "- Check proxy status: systemctl status gitpod-proxy"
+      echo "- Check prometheus status: systemctl status prometheus"
+      echo "- Check config updater timer: systemctl status prometheus-config-updater.timer"
+      echo "- Check proxy logs: journalctl -u gitpod-proxy -f"
+      echo "- Check prometheus logs: journalctl -u prometheus -f"
+      echo "- Check config updater logs: journalctl -u prometheus-config-updater.service -f"
+      echo "- Check containers: docker ps"
+      echo "- Update prometheus config: /var/lib/gitpod/update-prometheus-config.sh"
+
+# Run the setup script
+# https://cloud.google.com/container-optimized-os/docs/how-to/run-container-instance
+runcmd:
+  - |
+    # Download CA certificate first if enabled
+    if [ -f /var/lib/gitpod/scripts/download-ca.sh ]; then
+      echo "Downloading CA certificate..."
+      # Ensure script is executable (cloud-init sometimes doesn't apply permissions correctly)
+      chmod +x /var/lib/gitpod/scripts/download-ca.sh
+      # Execute the script
+      bash /var/lib/gitpod/scripts/download-ca.sh
+    else
+      echo "CA download script not found, skipping CA certificate download"
+    fi
+  - |
+    # Download Docker config if enabled
+    if [ -f /var/lib/gitpod/scripts/download-docker-config.sh ]; then
+      echo "Downloading Docker config..."
+      # Ensure script is executable (cloud-init sometimes doesn't apply permissions correctly)
+      chmod +x /var/lib/gitpod/scripts/download-docker-config.sh
+      # Execute the script
+      bash /var/lib/gitpod/scripts/download-docker-config.sh
+    else
+      echo "Docker config download script not found, skipping Docker config download"
+    fi
+  - |
+    # Configure insecure registries if enabled
+    if [ -f /var/lib/gitpod/scripts/configure-insecure-registries.sh ]; then
+      echo "Configuring insecure registries..."
+      # Ensure script is executable (cloud-init sometimes doesn't apply permissions correctly)
+      chmod +x /var/lib/gitpod/scripts/configure-insecure-registries.sh
+      # Execute the script
+      bash /var/lib/gitpod/scripts/configure-insecure-registries.sh
+    else
+      echo "Insecure registries script not found, skipping insecure registries configuration"
+    fi
+  - |
+    # Restart Docker daemon to apply daemon.json configuration (insecure registries)
+    echo "Reloading systemd and restarting Docker daemon to apply daemon.json configuration..."
+    systemctl daemon-reload
+    systemctl restart docker
+    echo "Docker daemon restarted successfully"
+  - |
+    # Wait for container-startup.sh to be written and make it executable
+    while [ ! -f /tmp/container-startup.sh ]; do sleep 1; done
+    chmod +x /tmp/container-startup.sh
+    sh /tmp/container-startup.sh
+  - systemctl start node-problem-detector
+  # Ensure ports are open
+  - iptables -A INPUT -p tcp --dport 5000 -j ACCEPT  # Allow health check port from all sources (GCP firewall restricts to probes)
+  - iptables -A INPUT -p tcp --dport 8080 -j ACCEPT  # Proxy HTTP
+  - iptables -A INPUT -p tcp --dport 8443 -j ACCEPT  # Proxy HTTPS
+  - iptables -A INPUT -p tcp --dport 9093 -j ACCEPT  # Prometheus (internal access only)
+  - iptables -A INPUT -p tcp --dport 22 -j ACCEPT    # SSH is already allowed, but harmless to add

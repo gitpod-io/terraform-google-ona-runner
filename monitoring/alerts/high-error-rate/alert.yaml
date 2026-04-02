@@ -1,0 +1,21 @@
+apiVersion: 1
+groups:
+  - name: gcp-runner-high-error-rate
+    interval: 30s
+    rules:
+      - alert: GCPRunnerHighErrorRate
+        expr: |
+          (
+            rate(gitpod_gcp_compute_environment_operations_total{status!="success"}[5m]) /
+            rate(gitpod_gcp_compute_environment_operations_total[5m])
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          component: gcp-runner
+          alert_type: error_rate
+        annotations:
+          summary: "GCP Runner has high error rate"
+          description: "GCP Runner environment operations error rate is {{ $value | humanizePercentage }} over the last 5 minutes"
+          impact: "Users experiencing failures creating/managing environments"
+          runbook_url: "https://github.com/gitpod-io/terraform-google-ona-runner/blob/main/monitoring/alerts/critical/high-error-rate/runbook.md"

@@ -1,0 +1,17 @@
+apiVersion: 1
+groups:
+  - name: gcp-runner-goroutine-panics
+    interval: 30s
+    rules:
+      - alert: GCPRunnerGoroutinePanics
+        expr: increase(gitpod_gcp_runtime_goroutine_panics_total[5m]) > 0
+        for: 0s
+        labels:
+          severity: critical
+          component: gcp-runner
+          alert_type: application_error
+        annotations:
+          summary: "GCP Runner experiencing goroutine panics"
+          description: "GCP Runner has experienced {{ $value }} goroutine panic(s) in the last 5 minutes for goroutine {{ $labels.goroutine_name }}"
+          impact: "Application instability, potential service degradation or crashes"
+          runbook_url: "https://github.com/gitpod-io/terraform-google-ona-runner/blob/main/monitoring/alerts/critical/goroutine-panics/runbook.md"

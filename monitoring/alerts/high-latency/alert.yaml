@@ -1,0 +1,17 @@
+apiVersion: 1
+groups:
+  - name: gcp-runner-high-latency
+    interval: 30s
+    rules:
+      - alert: GCPRunnerHighLatency
+        expr: histogram_quantile(0.95, rate(gitpod_gcp_compute_environment_operation_duration_seconds_bucket[5m])) > 300
+        for: 5m
+        labels:
+          severity: critical
+          component: gcp-runner
+          alert_type: latency
+        annotations:
+          summary: "GCP Runner has high operation latency"
+          description: "GCP Runner 95th percentile environment operation latency is {{ $value }}s over the last 5 minutes"
+          impact: "Slow environment creation/startup times affecting user productivity"
+          runbook_url: "https://github.com/gitpod-io/terraform-google-ona-runner/blob/main/monitoring/alerts/critical/high-latency/runbook.md"

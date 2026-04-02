@@ -1,0 +1,89 @@
+name: GCP Runner E2E Tests
+
+on:
+  schedule:
+    # Run daily at 6 AM UTC
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  # GCP Configuration - Override with variables if provided
+  GCP_PROJECT_ID: ${{ vars.E2E_GCP_PROJECT_ID || 'gitpod-gcp-runner-e2e-tests' }}
+  GCP_REGION: ${{ vars.E2E_GCP_REGION || 'us-central1' }}
+  GITPOD_API_ENDPOINT: ${{ vars.E2E_GITPOD_API_ENDPOINT || 'https://app.gitpod.io/api' }}
+
+jobs:
+  e2e-test:
+    name: Run E2E Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          version: 'latest'
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "latest"
+
+      - name: Configure environment and authentication
+        run: |
+          # Set sensitive environment variables for e2e script
+          echo "GITPOD_TOKEN=${{ secrets.E2E_GITPOD_TOKEN }}" >> $GITHUB_ENV
+          
+          # Set up service account authentication directly (like dev container)
+          echo '${{ secrets.E2E_GOOGLE_APPLICATION_CREDENTIALS }}' > /tmp/gcp-sa-key.json
+          chmod 600 /tmp/gcp-sa-key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-sa-key.json" >> $GITHUB_ENV
+
+      - name: Run E2E Test
+        run: |
+          echo "Starting GCP Runner E2E test..."
+          echo "Project: $GCP_PROJECT_ID | Region: $GCP_REGION"
+          
+          # Run the E2E test script
+          chmod +x tests/e2e/scripts/e2e-test.sh
+          ./tests/e2e/scripts/e2e-test.sh
+
+      - name: Cleanup service account file
+        if: always()
+        run: |
+          # Clean up temporary service account key file
+          if [[ -f "/tmp/gcp-sa-key.json" ]]; then
+            rm -f /tmp/gcp-sa-key.json
+          fi
+
+      - name: Slack Notification on Failure
+        if: failure() && github.ref == 'refs/heads/main'
+        uses: rtCamp/action-slack-notify@v2.3.3
+        env:
+          SLACK_WEBHOOK: ${{ secrets.NEXT_ALERTS_SLACK_WEBHOOK }}
+          SLACK_ICON_EMOJI: ":gcp:"
+          SLACK_USERNAME: "GCP Runner E2E Tests"
+          SLACK_COLOR: "danger"
+          SLACK_MESSAGE: |
+            :warning: GCP Runner end-to-end tests have failed
+            
+            **Details:**
+            • Project: ${{ env.GCP_PROJECT_ID }}
+            • Region: ${{ env.GCP_REGION }}
+            • Workflow: ${{ github.workflow }}
+            • Commit: ${{ github.sha }}
+            
+            The test creates a runner via RunnerService API, deploys infrastructure with Terraform, and verifies the runner comes online.
+          SLACK_FOOTER: "<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View workflow logs>"

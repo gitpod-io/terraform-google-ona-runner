@@ -1,0 +1,17 @@
+apiVersion: 1
+groups:
+  - name: gcp-runner-quota-exceeded
+    interval: 60s
+    rules:
+      - alert: GCPRunnerQuotaExceeded
+        expr: rate(gitpod_gcp_compute_zone_quota_status_total{status="exceeded"}[10m]) > 0
+        for: 5m
+        labels:
+          severity: medium
+          component: gcp-runner
+          alert_type: quota_exceeded
+        annotations:
+          summary: "GCP Runner hitting quota limits"
+          description: "GCP Runner is hitting {{ $labels.quota_type }} quota limits in zone {{ $labels.zone }}"
+          impact: "Cannot create new environments in affected zone until quota is increased"
+          runbook_url: "https://github.com/gitpod-io/terraform-google-ona-runner/blob/main/monitoring/alerts/medium/quota-exceeded/runbook.md"

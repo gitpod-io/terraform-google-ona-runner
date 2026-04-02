@@ -1,0 +1,25 @@
+# Required Variables
+
+# GCP Project and Location
+project_id     = "your-gcp-project-id"
+region         = "us-central1"
+zones          = ["us-central1-a", "us-central1-b", "us-central1-c"]
+
+# Runner Configuration (get these from Ona dashboard: Settings → Runners → Set up a new runner)
+# See: https://ona.com/docs/ona/runners/gcp/setup#create-runner-in-ona
+runner_name    = "my-gitpod-runner"
+runner_id      = "runner-abc123def456"        # From Ona dashboard
+runner_token   = "eyJhbGciOiJSUzI1NiIs..."     # From Ona dashboard (keep secure!)
+runner_domain  = "gitpod.example.com"
+
+# Optional Variables with Defaults
+# api_endpoint = "https://app.gitpod.io/api"
+# ssh_port = 29222
+# development_version = ""
+# certificate_id = ""
+# labels = {}
+# proxy_config = null
+
+# Runner size profile: "regular" (default) or "small" (cost-optimized for test/dev)
+# "small" uses: n4-standard-2 VMs, 1 proxy replica, nano Redis nodes with no replicas
+# runner_size = "regular"

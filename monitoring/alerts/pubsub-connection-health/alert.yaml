@@ -1,0 +1,17 @@
+apiVersion: 1
+groups:
+  - name: gcp-runner-pubsub-connection
+    interval: 30s
+    rules:
+      - alert: GCPRunnerPubSubConnectionUnhealthy
+        expr: gitpod_gcp_pubsub_connection_health == 0
+        for: 2m
+        labels:
+          severity: high
+          component: gcp-runner
+          alert_type: pubsub_connectivity
+        annotations:
+          summary: "GCP Runner PubSub connection is unhealthy"
+          description: "GCP Runner PubSub connection for subscription {{ $labels.subscription }} has been unhealthy for more than 2 minutes"
+          impact: "Event-driven reconciliation degraded, potential delays in environment state updates"
+          runbook_url: "https://github.com/gitpod-io/terraform-google-ona-runner/blob/main/monitoring/alerts/high/pubsub-connection-health/runbook.md"

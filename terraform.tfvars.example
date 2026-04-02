@@ -1,0 +1,37 @@
+# Required Variables
+project_id         = "your-gcp-project-id"
+region             = "us-central1"
+zones              = ["us-central1-a", "us-central1-b", "us-central1-c"]
+runner_name        = "my-ona-runner"
+runner_id          = "your-runner-id"
+runner_token       = "your-runner-token"
+runner_domain      = "ona.example.com"
+
+vpc_name           = "your-existing-vpc-name"
+runner_subnet_name = "your-existing-subnet-name"
+
+certificate_id     = "projects/your-project/locations/global/certificates/your-cert"
+
+# Optional variables to setup internal loadbalancer
+# loadbalancer_type = "internal" # or internal
+# routable_subnet_name = "your-existing-subnet-name"
+# certificate_secret_id = "/projects/project-number/secrets/cert" # certificate should be imported as a GCP secretsmanager resource
+
+
+# Optional Variables with Defaults
+# api_endpoint = "https://app.gitpod.io/api"
+# ssh_port = 29222
+# development_version = ""
+# labels = {}
+# proxy_config = {
+#   http_proxy  = "http://proxy.company.com:8080"
+#   https_proxy = "http://proxy.company.com:8080"
+#   no_proxy    = "localhost,127.0.0.1,.internal,.local,metadata.google.internal,*.googleapis.com,oauth2.googleapis.com,accounts.google.com"
+# }
+#
+# ca_certificate = {
+#     file_path = "/path/to/ca-certificate.pem" # OR content = ""
+# }
+
+# Optional variable to encrypt resources with KMS keys
+# kms_key_name = "projects/project-id/locations/us-central1/keyRings/ona-keyring/cryptoKeys/ona-key"

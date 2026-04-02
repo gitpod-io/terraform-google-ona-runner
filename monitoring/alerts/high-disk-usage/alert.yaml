@@ -1,0 +1,17 @@
+apiVersion: 1
+groups:
+  - name: gcp-runner-disk-usage
+    interval: 60s
+    rules:
+      - alert: GCPRunnerHighDiskUsage
+        expr: (1 - (node_filesystem_avail_bytes{job="node-exporter",fstype!="tmpfs",fstype!="overlay"} / node_filesystem_size_bytes{job="node-exporter",fstype!="tmpfs",fstype!="overlay"})) * 100 > 85
+        for: 10m
+        labels:
+          severity: medium
+          component: gcp-runner
+          alert_type: resource_usage
+        annotations:
+          summary: "GCP Runner has high disk usage"
+          description: "GCP Runner disk usage is {{ $value | humanizePercentage }} for filesystem {{ $labels.mountpoint }} on instance {{ $labels.instance }}"
+          impact: "Risk of disk full, potential service failures, log rotation issues"
+          runbook_url: "https://github.com/gitpod-io/terraform-google-ona-runner/blob/main/monitoring/alerts/medium/high-disk-usage/runbook.md"

@@ -1,0 +1,17 @@
+apiVersion: 1
+groups:
+  - name: gcp-runner-api-rate-limiting
+    interval: 30s
+    rules:
+      - alert: GCPRunnerAPIRateLimiting
+        expr: rate(gitpod_gcp_compute_rate_limit_hits_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: high
+          component: gcp-runner
+          alert_type: rate_limiting
+        annotations:
+          summary: "GCP Runner is hitting API rate limits"
+          description: "GCP Runner is experiencing {{ $value }} rate limit hits per second over the last 5 minutes"
+          impact: "Intermittent failures and delays in environment operations"
+          runbook_url: "https://github.com/gitpod-io/terraform-google-ona-runner/blob/main/monitoring/alerts/high/api-rate-limiting/runbook.md"

@@ -1,0 +1,17 @@
+apiVersion: 1
+groups:
+  - name: gcp-runner-memory-usage
+    interval: 60s
+    rules:
+      - alert: GCPRunnerHighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes{job="node-exporter"} / node_memory_MemTotal_bytes{job="node-exporter"})) * 100 > 85
+        for: 10m
+        labels:
+          severity: medium
+          component: gcp-runner
+          alert_type: resource_usage
+        annotations:
+          summary: "GCP Runner has high memory usage"
+          description: "GCP Runner memory usage is {{ $value | humanizePercentage }} for more than 10 minutes on instance {{ $labels.instance }}"
+          impact: "Risk of OOM kills, performance degradation, potential service instability"
+          runbook_url: "https://github.com/gitpod-io/terraform-google-ona-runner/blob/main/monitoring/alerts/medium/high-memory-usage/runbook.md"

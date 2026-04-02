@@ -1,0 +1,14 @@
+# Customer GCP Project Configuration
+project_id = "your-gcp-project-id"
+region     = "us-central1"
+
+# Network Configuration
+vpc_network = "default"
+subnet_name = "default"
+
+# Domain and SSL Configuration
+domain_name        = "gitpod.example.com"
+certificate_manager_cert_id = "projects/your-gcp-project-id/regions/us-central1/certificates/your-cert-name"
+
+# Optional: Custom service name (default: gitpod-custom-domain)
+# service_name = "my-gitpod"

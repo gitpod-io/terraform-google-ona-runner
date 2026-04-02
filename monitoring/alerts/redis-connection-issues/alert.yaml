@@ -1,0 +1,17 @@
+apiVersion: 1
+groups:
+  - name: gcp-runner-redis-connection
+    interval: 30s
+    rules:
+      - alert: GCPRunnerRedisConnectionIssues
+        expr: gitpod_gcp_compute_redis_connection_health == 0
+        for: 2m
+        labels:
+          severity: high
+          component: gcp-runner
+          alert_type: redis_connectivity
+        annotations:
+          summary: "GCP Runner Redis connection issues"
+          description: "GCP Runner has been unable to connect to Redis for more than 2 minutes"
+          impact: "Environment state management degraded, potential data consistency issues"
+          runbook_url: "https://github.com/gitpod-io/terraform-google-ona-runner/blob/main/monitoring/alerts/high/redis-connection-issues/runbook.md"
