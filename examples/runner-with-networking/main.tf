@@ -139,8 +139,7 @@ locals {
 }
 
 module "runner" {
-  source  = "gitpod-io/ona-runner/google"
-  version = "~> 1.0"
+  source = "../.."
 
   project_id         = var.project_id
   runner_name        = var.runner_name
