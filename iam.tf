@@ -127,6 +127,7 @@ resource "google_project_iam_custom_role" "runner" {
     "compute.instances.detachDisk",
     "compute.instances.setDiskAutoDelete",
     "compute.instances.setServiceAccount",
+    "compute.instances.listReferrers",
 
     # Disk management
     "compute.disks.create",
