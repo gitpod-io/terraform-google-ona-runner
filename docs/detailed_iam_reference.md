@@ -166,6 +166,7 @@ The runner service account uses a custom IAM role with minimal required permissi
 - `compute.instances.detachDisk` - Detach persistent disks
 - `compute.instances.setDiskAutoDelete` - Configure disk auto-deletion
 - `compute.instances.setServiceAccount` - Assign service accounts to VMs
+- `compute.instances.listReferrers` - Check if instance is detached from MIG (warm pool)
 
 **Disk Management**:
 - `compute.disks.create` - Create persistent disks for workspaces

@@ -93,7 +93,7 @@ When using pre-created service accounts, these roles must be created beforehand 
 - **Title**: Ona Runner
 - **Description**: Minimal permissions for runner infrastructure management
 
-**Permissions** (67 total):
+**Permissions** (68 total):
 ```
 # Instance lifecycle management
 compute.instances.create
@@ -109,6 +109,7 @@ compute.instances.attachDisk
 compute.instances.detachDisk
 compute.instances.setDiskAutoDelete
 compute.instances.setServiceAccount
+compute.instances.listReferrers
 
 # Disk management
 compute.disks.create
@@ -481,6 +482,7 @@ includedPermissions:
 - compute.instances.detachDisk
 - compute.instances.setDiskAutoDelete
 - compute.instances.setServiceAccount
+- compute.instances.listReferrers
 - compute.disks.create
 - compute.disks.delete
 - compute.disks.get
