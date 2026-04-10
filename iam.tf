@@ -296,9 +296,11 @@ resource "google_secret_manager_secret_iam_member" "runner_cp_certificate_secret
 }
 
 # GCS access for runner assets bucket (runner VMs)
+# objectAdmin is required because the runner reads trust bundles and writes
+# metrics audit payloads (managed metrics) to this bucket.
 resource "google_storage_bucket_iam_member" "runner_runner_assets_access" {
   bucket = google_storage_bucket.runner_assets.name
-  role   = "roles/storage.objectViewer"
+  role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${local.runner_sa_email}"
 }
 
