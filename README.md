@@ -1,5 +1,7 @@
 # Ona GCP Runner
 
+[![Build with Ona](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/gitpod-io/terraform-google-ona-runner)
+
 This Terraform module deploys an Ona runner on Google Cloud Platform (GCP).
 
 ## Prerequisites
@@ -243,8 +245,6 @@ gcloud compute backend-services get-health <backend-service-name>
 ```
 
 ## Contributing
-
-[![Build with Ona](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/gitpod-io/terraform-google-ona-runner)
 
 1. Fork the repository
 2. Create a feature branch
