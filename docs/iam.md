@@ -93,7 +93,7 @@ When using pre-created service accounts, these roles must be created beforehand 
 - **Title**: Ona Runner
 - **Description**: Minimal permissions for runner infrastructure management
 
-**Permissions** (73 total):
+**Permissions** (74 total):
 ```
 # Instance lifecycle management
 compute.instances.create
@@ -201,6 +201,7 @@ compute.instanceGroupManagers.list
 compute.instanceGroupManagers.create
 compute.instanceGroupManagers.delete
 compute.instanceGroupManagers.update
+compute.instanceGroupManagers.use
 compute.instanceGroups.delete
 compute.instanceGroups.list
 
@@ -560,6 +561,7 @@ includedPermissions:
 - compute.instanceGroupManagers.create
 - compute.instanceGroupManagers.delete
 - compute.instanceGroupManagers.update
+- compute.instanceGroupManagers.use
 - compute.instanceGroups.delete
 - compute.instanceGroups.list
 - compute.autoscalers.create
@@ -767,9 +769,9 @@ Replace the single runner custom role binding with these 8 predefined roles:
 export SA="${RUNNER_NAME}-runner@${PROJECT_ID}.iam.gserviceaccount.com"
 
 # Compute instance, disk, network, template, MIG, and autoscaler management.
-# Needed: 41 compute permissions for VM lifecycle, disks, networks, operations,
+# Needed: 42 compute permissions for VM lifecycle, disks, networks, operations,
 #   machine/disk types, instance templates, MIG updates, and autoscaler scaling.
-# Excess: grants 224 additional permissions including network endpoint
+# Excess: grants 223 additional permissions including network endpoint
 #   group and machine image management that the runner does not use.
 gcloud projects add-iam-policy-binding ${PROJECT_ID} \
   --member="serviceAccount:${SA}" \
