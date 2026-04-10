@@ -93,7 +93,7 @@ When using pre-created service accounts, these roles must be created beforehand 
 - **Title**: Ona Runner
 - **Description**: Minimal permissions for runner infrastructure management
 
-**Permissions** (68 total):
+**Permissions** (73 total):
 ```
 # Instance lifecycle management
 compute.instances.create
@@ -203,6 +203,15 @@ compute.instanceGroupManagers.delete
 compute.instanceGroupManagers.update
 compute.instanceGroups.delete
 compute.instanceGroups.list
+
+# Autoscaler (dynamic warm pool scaling)
+compute.autoscalers.create
+compute.autoscalers.delete
+compute.autoscalers.get
+compute.autoscalers.update
+
+# Cloud Monitoring (warm pool scaling metrics)
+monitoring.timeSeries.create
 
 # Cloud Logging (prebuild log persistence)
 logging.logEntries.list
@@ -553,6 +562,11 @@ includedPermissions:
 - compute.instanceGroupManagers.update
 - compute.instanceGroups.delete
 - compute.instanceGroups.list
+- compute.autoscalers.create
+- compute.autoscalers.delete
+- compute.autoscalers.get
+- compute.autoscalers.update
+- monitoring.timeSeries.create
 - logging.logEntries.list
 - logging.logEntries.create
 - logging.logs.delete
@@ -752,11 +766,11 @@ Replace the single runner custom role binding with these 8 predefined roles:
 ```bash
 export SA="${RUNNER_NAME}-runner@${PROJECT_ID}.iam.gserviceaccount.com"
 
-# Compute instance, disk, network, template, and MIG management.
-# Needed: 37 compute permissions for VM lifecycle, disks, networks, operations,
-#   machine/disk types, instance templates, and MIG updates.
-# Excess: grants 228 additional permissions including autoscaler, network endpoint
-#   group, and machine image management that the runner does not use.
+# Compute instance, disk, network, template, MIG, and autoscaler management.
+# Needed: 41 compute permissions for VM lifecycle, disks, networks, operations,
+#   machine/disk types, instance templates, MIG updates, and autoscaler scaling.
+# Excess: grants 224 additional permissions including network endpoint
+#   group and machine image management that the runner does not use.
 gcloud projects add-iam-policy-binding ${PROJECT_ID} \
   --member="serviceAccount:${SA}" \
   --role="roles/compute.instanceAdmin"

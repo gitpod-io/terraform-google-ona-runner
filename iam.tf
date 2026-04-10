@@ -231,6 +231,15 @@ resource "google_project_iam_custom_role" "runner" {
     "compute.instanceGroups.delete",
     "compute.instanceGroups.list",
 
+    # Autoscaler permissions for dynamic warm pool scaling
+    "compute.autoscalers.create",
+    "compute.autoscalers.delete",
+    "compute.autoscalers.get",
+    "compute.autoscalers.update",
+
+    # Cloud Monitoring permissions for publishing warm pool scaling metrics
+    "monitoring.timeSeries.create",
+
     # Cloud Logging permissions for environment and prebuild log persistence
     "logging.logEntries.list",   # Read environment logs from Cloud Logging
     "logging.logEntries.create", # Write prebuild logs to Cloud Logging
