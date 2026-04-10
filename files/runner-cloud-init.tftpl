@@ -683,6 +683,7 @@ write_files:
         --prometheus-secret-name=${METRICS_SECRET_ID} \
         --agent-execution-feature-enabled=${ENABLE_AGENTS} \
         --agent-bucket-name=${AGENT_BUCKET_NAME} \
+        --runner-assets-bucket-name=${RUNNER_ASSETS_BUCKET_NAME} \
         --mig-warm-pool-enabled=${MIG_WARM_POOL_ENABLED}
 
       ExecStopPre=-/bin/bash -c 'timeout 10 /var/lib/gitpod/flush-metrics.sh || true'
