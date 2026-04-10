@@ -1,0 +1,25 @@
+docs/iam.md
+  caf9aede89953d9d 96,204,564,772,774
+iam.tf
+  caf9aede89953d9d 229
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "b94b451bee64bea8ad608b1a8b771e2c25ad0fe7",
+  "prompts": {
+    "caf9aede89953d9d": {
+      "agent_id": {
+        "tool": "Ona",
+        "id": "session-4893",
+        "model": "opus-4.6"
+      },
+      "human_author": "Nandaja",
+      "messages": [],
+      "total_additions": 6,
+      "total_deletions": 3,
+      "accepted_lines": 6,
+      "overriden_lines": 0
+    }
+  }
+}
