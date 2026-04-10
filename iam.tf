@@ -226,6 +226,7 @@ resource "google_project_iam_custom_role" "runner" {
     "compute.instanceGroupManagers.create",
     "compute.instanceGroupManagers.delete",
     "compute.instanceGroupManagers.update",
+    "compute.instanceGroupManagers.use",
 
     # Instance group permissions required for MIG operations
     "compute.instanceGroups.delete",
