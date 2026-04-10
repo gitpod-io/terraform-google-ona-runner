@@ -17,6 +17,7 @@ This Terraform module deploys the customer-side infrastructure required to conne
 3. Validation Result
    ├─ Valid: Forwards request to backend URL
    └─ Invalid: Returns 401 Unauthorized
+```
 
 ## Prerequisites
 
