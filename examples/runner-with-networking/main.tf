@@ -168,9 +168,10 @@ module "runner" {
   proxy_vm_config  = local.selected_profile.proxy_vm_config
   redis_config     = local.selected_profile.redis_config
 
-  routable_subnet_name = local.runner_subnet_name
-  create_cmek          = var.create_cmek
-  kms_key_name         = var.kms_key_name
+  routable_subnet_name  = local.runner_subnet_name
+  create_cmek           = var.create_cmek
+  kms_key_name          = var.kms_key_name
+  mig_warm_pool_enabled = var.mig_warm_pool_enabled
 
   depends_on = [module.networking, module.dns, module.self_signed_cert, module.certbot]
 }
