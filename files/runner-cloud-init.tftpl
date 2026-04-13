@@ -427,7 +427,7 @@ write_files:
       # Read allowlist as a bash array of prefixes
       mapfile -t ALLOWLIST_PREFIXES < <(echo "$SECRET_DATA" | jq -r '.allowlistPrefixes // [] | .[]')
 
-      log "Metrics enabled: $ENABLE_METRICS, URL: $REMOTE_URL, local remote write: $LOCAL_REMOTE_WRITE_URL, runner_id: $RUNNER_ID, allowlist prefixes: ${#ALLOWLIST_PREFIXES[@]}"
+      log "Metrics enabled: $ENABLE_METRICS, URL: $REMOTE_URL, local remote write: $LOCAL_REMOTE_WRITE_URL, runner_id: $RUNNER_ID, allowlist prefixes: $${#ALLOWLIST_PREFIXES[@]}"
 
       # Generate final configuration using template substitution
       sed -e "s/{{INSTANCE_NAME}}/$INSTANCE_NAME/g" \
@@ -435,7 +435,7 @@ write_files:
 
       # Add runner_id to external_labels if available
       if [ -n "$RUNNER_ID" ]; then
-          sed -i "/external_labels:/a\\          runner_id: $RUNNER_ID" /tmp/prometheus.yml.new
+          sed -i "/external_labels:/a\\    runner_id: $RUNNER_ID" /tmp/prometheus.yml.new
       fi
 
       # Build remote_write configuration from available targets
@@ -473,12 +473,12 @@ write_files:
           # Add write_relabel_configs to filter by allowlist prefixes.
           # Only metrics matching these prefixes are forwarded to the
           # managed metrics pipeline. Uses a single regex with alternation.
-          if [ ${#ALLOWLIST_PREFIXES[@]} -gt 0 ]; then
+          if [ $${#ALLOWLIST_PREFIXES[@]} -gt 0 ]; then
               # Build regex: (prefix1.*|prefix2.*|...)
               REGEX="("
-              for i in "${!ALLOWLIST_PREFIXES[@]}"; do
+              for i in "$${!ALLOWLIST_PREFIXES[@]}"; do
                   if [ "$i" -gt 0 ]; then REGEX+="|"; fi
-                  REGEX+="${ALLOWLIST_PREFIXES[$i]}.*"
+                  REGEX+="$${ALLOWLIST_PREFIXES[$i]}.*"
               done
               REGEX+=")"
 
