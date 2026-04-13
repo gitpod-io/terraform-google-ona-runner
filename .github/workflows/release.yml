@@ -165,16 +165,18 @@ jobs:
           cat changelog.txt >> release_body.md
 
       - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ env.RELEASE_TAG }}
-          name: ${{ env.RELEASE_TAG }}
-          body_path: release_body.md
-          files: |
-            terraform-google-ona-runner-${{ env.RELEASE_TAG }}.tar.gz
-          fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Delete any pre-existing release for this tag to avoid stale body content.
+          # A race between the tag push and this workflow can create a release with
+          # an outdated body that softprops/action-gh-release would silently keep.
+          gh release delete "${RELEASE_TAG}" --yes 2>/dev/null || true
+
+          gh release create "${RELEASE_TAG}" \
+            --title "${RELEASE_TAG}" \
+            --notes-file release_body.md \
+            "terraform-google-ona-runner-${RELEASE_TAG}.tar.gz"
 
       - name: Authenticate to GCP
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # pin@v3
