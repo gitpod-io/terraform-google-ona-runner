@@ -1,0 +1,23 @@
+files/runner-cloud-init.tftpl
+  cb6633e3d138604b 230,426-428,430,436-440,472-489
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "4b43f9bc1e4633e1f98c1e09d93e967bf0b1e6d1",
+  "prompts": {
+    "cb6633e3d138604b": {
+      "agent_id": {
+        "tool": "Ona",
+        "id": "session-15677",
+        "model": "opus-4.6"
+      },
+      "human_author": "Nandaja",
+      "messages": [],
+      "total_additions": 28,
+      "total_deletions": 1,
+      "accepted_lines": 28,
+      "overriden_lines": 0
+    }
+  }
+}
