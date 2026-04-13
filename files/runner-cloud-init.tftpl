@@ -421,34 +421,45 @@ write_files:
       REMOTE_URL=$(echo "$SECRET_DATA" | jq -r '.url // ""')
       REMOTE_USER=$(echo "$SECRET_DATA" | jq -r '.user // ""')
       REMOTE_PASSWORD=$(echo "$SECRET_DATA" | jq -r '.password // ""')
+      LOCAL_REMOTE_WRITE_URL=$(echo "$SECRET_DATA" | jq -r '.localRemoteWriteUrl // ""')
 
-      log "Metrics enabled: $ENABLE_METRICS, URL: $REMOTE_URL"
+      log "Metrics enabled: $ENABLE_METRICS, URL: $REMOTE_URL, local remote write: $LOCAL_REMOTE_WRITE_URL"
 
       # Generate final configuration using template substitution
       sed -e "s/{{INSTANCE_NAME}}/$INSTANCE_NAME/g" \
           /var/lib/prometheus/prometheus-template.yml > /tmp/prometheus.yml.new
 
-      # Add remote write configuration if metrics are enabled
+      # Build remote_write configuration from available targets
+      HAS_REMOTE_WRITE=false
+
+      # Remove the placeholder line first
+      sed -i '/{{REMOTE_WRITE_CONFIG}}/d' /tmp/prometheus.yml.new
+
+      # Add Grafana Cloud remote write if metrics are enabled
       if [ "$ENABLE_METRICS" = "true" ] && [ -n "$REMOTE_URL" ]; then
-          log "Adding remote write configuration"
-          
-          # Remove the placeholder line
-          sed -i '/{{REMOTE_WRITE_CONFIG}}/d' /tmp/prometheus.yml.new
-          
-          # Add remote write configuration using echo
-          echo "" >> /tmp/prometheus.yml.new
-          echo "remote_write:" >> /tmp/prometheus.yml.new
+          log "Adding Grafana Cloud remote write target"
+          if [ "$HAS_REMOTE_WRITE" = "false" ]; then
+              echo "" >> /tmp/prometheus.yml.new
+              echo "remote_write:" >> /tmp/prometheus.yml.new
+              HAS_REMOTE_WRITE=true
+          fi
           echo "  - url: $REMOTE_URL" >> /tmp/prometheus.yml.new
-          
-          # Add basic auth if credentials are provided
           if [ -n "$REMOTE_USER" ] && [ -n "$REMOTE_PASSWORD" ]; then
               echo "    basic_auth:" >> /tmp/prometheus.yml.new
               echo "      username: $REMOTE_USER" >> /tmp/prometheus.yml.new
               echo "      password: $REMOTE_PASSWORD" >> /tmp/prometheus.yml.new
           fi
-      else
-          # Remove the placeholder line when metrics are disabled
-          sed -i '/{{REMOTE_WRITE_CONFIG}}/d' /tmp/prometheus.yml.new
+      fi
+
+      # Add local remote write target for managed metrics pipeline
+      if [ -n "$LOCAL_REMOTE_WRITE_URL" ]; then
+          log "Adding local remote write target: $LOCAL_REMOTE_WRITE_URL"
+          if [ "$HAS_REMOTE_WRITE" = "false" ]; then
+              echo "" >> /tmp/prometheus.yml.new
+              echo "remote_write:" >> /tmp/prometheus.yml.new
+              HAS_REMOTE_WRITE=true
+          fi
+          echo "  - url: $LOCAL_REMOTE_WRITE_URL" >> /tmp/prometheus.yml.new
       fi
 
       # Check if configuration changed
