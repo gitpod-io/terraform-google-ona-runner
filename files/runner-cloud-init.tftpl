@@ -227,6 +227,7 @@ write_files:
         scrape_timeout: 10s
         evaluation_interval: 15s
         external_labels:
+          stack: gcp
           project_id: ${PROJECT_ID}
           region: ${REGION}
           runner_name: ${RUNNER_ID}
@@ -422,12 +423,20 @@ write_files:
       REMOTE_USER=$(echo "$SECRET_DATA" | jq -r '.user // ""')
       REMOTE_PASSWORD=$(echo "$SECRET_DATA" | jq -r '.password // ""')
       LOCAL_REMOTE_WRITE_URL=$(echo "$SECRET_DATA" | jq -r '.localRemoteWriteUrl // ""')
+      RUNNER_ID=$(echo "$SECRET_DATA" | jq -r '.runnerId // ""')
+      # Read allowlist as a bash array of prefixes
+      mapfile -t ALLOWLIST_PREFIXES < <(echo "$SECRET_DATA" | jq -r '.allowlistPrefixes // [] | .[]')
 
-      log "Metrics enabled: $ENABLE_METRICS, URL: $REMOTE_URL, local remote write: $LOCAL_REMOTE_WRITE_URL"
+      log "Metrics enabled: $ENABLE_METRICS, URL: $REMOTE_URL, local remote write: $LOCAL_REMOTE_WRITE_URL, runner_id: $RUNNER_ID, allowlist prefixes: ${#ALLOWLIST_PREFIXES[@]}"
 
       # Generate final configuration using template substitution
       sed -e "s/{{INSTANCE_NAME}}/$INSTANCE_NAME/g" \
           /var/lib/prometheus/prometheus-template.yml > /tmp/prometheus.yml.new
+
+      # Add runner_id to external_labels if available
+      if [ -n "$RUNNER_ID" ]; then
+          sed -i "/external_labels:/a\\          runner_id: $RUNNER_ID" /tmp/prometheus.yml.new
+      fi
 
       # Build remote_write configuration from available targets
       HAS_REMOTE_WRITE=false
@@ -460,6 +469,24 @@ write_files:
               HAS_REMOTE_WRITE=true
           fi
           echo "  - url: $LOCAL_REMOTE_WRITE_URL" >> /tmp/prometheus.yml.new
+
+          # Add write_relabel_configs to filter by allowlist prefixes.
+          # Only metrics matching these prefixes are forwarded to the
+          # managed metrics pipeline. Uses a single regex with alternation.
+          if [ ${#ALLOWLIST_PREFIXES[@]} -gt 0 ]; then
+              # Build regex: (prefix1.*|prefix2.*|...)
+              REGEX="("
+              for i in "${!ALLOWLIST_PREFIXES[@]}"; do
+                  if [ "$i" -gt 0 ]; then REGEX+="|"; fi
+                  REGEX+="${ALLOWLIST_PREFIXES[$i]}.*"
+              done
+              REGEX+=")"
+
+              echo "    write_relabel_configs:" >> /tmp/prometheus.yml.new
+              echo "      - source_labels: [__name__]" >> /tmp/prometheus.yml.new
+              echo "        regex: '$REGEX'" >> /tmp/prometheus.yml.new
+              echo "        action: keep" >> /tmp/prometheus.yml.new
+          fi
       fi
 
       # Check if configuration changed
