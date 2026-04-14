@@ -31,5 +31,5 @@ provides a full infrastructure setup including VPC, DNS, and certificates.
 New stable releases are published roughly once a week. To get notified when a
 release is available, subscribe to the Pub/Sub release notifications topic from
 your own GCP project. See the
-[Release Notifications Guide](./docs/release-notifications.md) for topic
-details, message format, and subscription examples.
+[Release Notifications](https://ona.com/docs/ona/runners/gcp/update-runner#release-notifications)
+documentation for topic details, message format, and subscription examples.
