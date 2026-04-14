@@ -7,15 +7,19 @@ This is the Terraform module for the Ona GCP Runner. It deploys an
 environment runs as a Compute Engine instance inside your project — source code
 and credentials never leave your infrastructure.
 
-GCP Runners require an [Enterprise plan](https://ona.com/pricing).
-[Contact sales](https://ona.com/contact/sales) for access.
+> GCP Runners require an [Enterprise plan](https://ona.com/pricing).
+> [Contact sales](https://ona.com/contact/sales) for access.
 
 Refer to [the Ona documentation](https://ona.com/docs/ona/runners/gcp/overview)
 for setup instructions, configuration options, and troubleshooting.
 
+---
+
 <p align="center">
   <img src="./docs/images/arch-diagram.png" alt="GCP Runner architecture" width="700" />
 </p>
+
+---
 
 ## Example
 
