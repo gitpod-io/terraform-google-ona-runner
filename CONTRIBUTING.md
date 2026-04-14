@@ -6,7 +6,9 @@ This document provides guidelines for contributing to the Ona GCP Runner Terrafo
 
 ## Development Environment
 
-The easiest way to get started is with the included [dev container](.devcontainer/), which comes pre-configured with all required tools. If you prefer a local setup, install the following:
+The easiest way to get started is to open this repository in [Ona](https://ona.com/) or run the included [dev container](.devcontainer/) locally with [VS Code Dev Containers](https://code.visualstudio.com/docs/devcontainers/containers) or any compatible IDE. The dev container comes pre-configured with all required tools.
+
+If you prefer a manual setup, install the following:
 
 - [Terraform](https://terraform.io/) >= 1.0
 - [Google Cloud SDK](https://cloud.google.com/sdk/install)
