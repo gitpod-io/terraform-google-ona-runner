@@ -1,5 +1,7 @@
 # Contributing
 
+[![Build with Ona](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/gitpod-io/terraform-google-ona-runner)
+
 This document provides guidelines for contributing to the Ona GCP Runner Terraform module.
 
 ## Development Environment
