@@ -1,65 +1,58 @@
-# Ona GCP Runner
+# Contributing
 
-[![Build with Ona](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/gitpod-io/terraform-google-ona-runner)
+This document provides guidelines for contributing to the Ona GCP Runner Terraform module.
 
-## Contributing
+## Development Environment
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+The easiest way to get started is with the included [dev container](.devcontainer/), which comes pre-configured with all required tools. If you prefer a local setup, install the following:
 
-## Quick Start
+- [Terraform](https://terraform.io/) >= 1.0
+- [Google Cloud SDK](https://cloud.google.com/sdk/install)
+- [pre-commit](https://pre-commit.com/)
+- [terraform-docs](https://github.com/terraform-docs/terraform-docs)
 
-1. **Clone and configure**:
-   ```bash
-   git clone <repository-url>
-   cd <repository-directory>
-   cp terraform.tfvars.example terraform.tfvars
-   ```
+## File Structure
 
-2. **Edit `terraform.tfvars`** with your values:
-   ```hcl
-   project_id         = "your-gcp-project-id"
-   region             = "us-central1"
-   zones              = ["us-central1-a", "us-central1-b", "us-central1-c"]
-   runner_name        = "my-ona-runner"
-   runner_id          = "your-runner-id"          # From Ona dashboard
-   runner_token       = "your-runner-token"       # From Ona dashboard
-   runner_domain      = "ona.example.com"
-   vpc_name           = "your-existing-vpc"       # Existing VPC name
-   runner_subnet_name = "your-existing-subnet"   # Existing subnet name
-   certificate_id     = "projects/your-project/locations/global/certificates/your-cert"  # Certificate Manager resource ID
+| Path | Description |
+|---|---|
+| `*.tf` | Root module resources |
+| `variables.tf` | Input variables |
+| `outputs.tf` | Output values |
+| `versions.tf` | Provider and Terraform version constraints |
+| `modules/` | Submodules |
+| `examples/` | Example configurations |
+| `docs/` | Additional documentation |
+| `files/` | Template files used by resources |
 
-   # Optional: Proxy configuration
-   proxy_config = {
-     http_proxy  = "http://proxy.example.com:8080"
-     https_proxy = "http://proxy.example.com:8080"
-     all_proxy   = "http://proxy.example.com:8080"
-     no_proxy    = "localhost,127.0.0.1,metadata.google.internal"
-   }
+## Making Changes
 
-   # Optional: Custom CA certificate (choose one method)
-   ca_certificate = {
-     file_path = "/path/to/ca-certificate.pem"  # OR
-     content   = "-----BEGIN CERTIFICATE-----\n..."
-   }
+1. Fork the repository and create a feature branch.
+2. Make your changes, following the conventions below.
+3. Run linting and formatting checks.
+4. Submit a pull request against `main`.
 
-   # Optional: Use pre-created service accounts
-   pre_created_service_accounts = {
-     runner           = "my-runner@my-project.iam.gserviceaccount.com"
-     environment_vm   = "my-env-vm@my-project.iam.gserviceaccount.com"
-     build_cache      = "my-build-cache@my-project.iam.gserviceaccount.com"
-     secret_manager   = "my-secrets@my-project.iam.gserviceaccount.com"
-     pubsub_processor = "my-pubsub@my-project.iam.gserviceaccount.com"
-     proxy_vm         = "my-proxy-vm@my-project.iam.gserviceaccount.com"
-   }
-   ```
+### Linting and Formatting
 
-3. **Deploy**:
-   ```bash
-   terraform init
-   terraform plan
-   terraform apply
-   ```
+This repository uses [pre-commit](https://pre-commit.com/) hooks for `terraform fmt`, `terraform-docs`, `shellcheck`, and general file hygiene. Install the hooks once after cloning:
+
+```bash
+pre-commit install
+```
+
+To run all checks manually:
+
+```bash
+pre-commit run --all-files
+```
+
+### Generating Documentation
+
+Input and output tables in README files are generated automatically by `terraform-docs` via pre-commit. If you change `variables.tf` or `outputs.tf`, the tables will be updated on your next commit. You can also regenerate them manually:
+
+```bash
+pre-commit run terraform_docs --all-files
+```
+
+## License
+
+By contributing, you agree that your contributions will be licensed under the [Mozilla Public License 2.0](LICENSE).
