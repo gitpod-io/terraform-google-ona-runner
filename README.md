@@ -8,7 +8,7 @@ environment runs as a Compute Engine instance inside your project — source cod
 and credentials never leave your infrastructure.
 
 > GCP Runners require an [Enterprise plan](https://ona.com/pricing).
-> [Contact sales](https://ona.com/contact/sales) for access.
+> To get access, [contact our sales](https://ona.com/contact/sales).
 
 Refer to [the Ona documentation](https://ona.com/docs/ona/runners/gcp/overview)
 for setup instructions, configuration options, and troubleshooting.
