@@ -1254,5 +1254,6 @@ runcmd:
   # Ensure port ports are open
   - iptables -A INPUT -p tcp --dport 9091 -j ACCEPT  # Allow health check port from all sources (GCP firewall restricts to probes)
   - iptables -A INPUT -p tcp --dport 4430 -j ACCEPT  # Auth proxy port
+  - iptables -A INPUT -p tcp --dport 7070 -j ACCEPT  # Port auth service
   - iptables -A INPUT -p tcp --dport 8080 -j ACCEPT  # If needed for your runner service
   - iptables -A INPUT -p tcp --dport 22 -j ACCEPT    # SSH is already allowed, but harmless to add
