@@ -174,3 +174,41 @@ variable "kms_key_name" {
     error_message = "The kms_key_name must be in the format projects/{project}/locations/{location}/keyRings/{keyring}/cryptoKeys/{key}."
   }
 }
+
+variable "custom_images" {
+  description = "Custom Docker images to use instead of default ones. Optionally includes Docker config.json content for registry credentials and insecure registry flag."
+  type = object({
+    runner_image        = optional(string, "")
+    proxy_image         = optional(string, "")
+    prometheus_image    = optional(string, "")
+    node_exporter_image = optional(string, "")
+    docker_config_json  = optional(string, "")  # Docker config.json content (JSON string)
+    insecure            = optional(bool, false) # Mark custom image registries as insecure
+  })
+  default = {
+    runner_image        = ""
+    proxy_image         = ""
+    prometheus_image    = ""
+    node_exporter_image = ""
+    docker_config_json  = ""
+    insecure            = false
+  }
+
+  validation {
+    condition     = var.custom_images.docker_config_json == "" || can(jsondecode(var.custom_images.docker_config_json))
+    error_message = "docker_config_json must be empty or valid JSON string."
+  }
+}
+
+variable "enable_agents" {
+  description = "Enable LLM agents execution feature in your Ona environments"
+  type        = bool
+  default     = true
+}
+
+variable "honeycomb_api_key" {
+  description = "Honeycomb API key for development tracing. Enables tracing on the runner and environments when set."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
