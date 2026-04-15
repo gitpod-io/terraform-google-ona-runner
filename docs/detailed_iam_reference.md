@@ -8,13 +8,13 @@ The module creates a secure, least-privilege infrastructure for running Ona work
 
 ## Service Accounts
 
-**Architecture Rationale**: Ona uses multiple specialized service accounts instead of a single account to implement defense-in-depth security:
+The module creates 3 service accounts:
 
-- **Blast Radius Limitation**: If one service account is compromised, damage is limited to its specific function
-- **Principle of Least Privilege**: Each account has only the minimum permissions needed for its role
-- **Audit Granularity**: Security events can be traced to specific functions (e.g., secret access vs. VM creation)
-- **Operational Isolation**: Different operational concerns (compute, storage, secrets) are separated
-- **Compliance**: Easier to demonstrate security controls to auditors with clear separation of duties
+1. **Runner** (`runner`) — manages infrastructure and orchestrates workspace lifecycle
+2. **Environment VM** (`environment_vm`) — used by workspace VMs with minimal permissions
+3. **Proxy VM** (`proxy_vm`) — used by proxy VMs for load balancing and traffic routing
+
+> **Note**: Previous versions created additional service accounts for build cache, secret management, and pub/sub processing. These have been removed — their permissions are handled directly by the runner service account.
 
 ### 1. Runner Service Account (`runner`)
 **Purpose**: Manages the runner infrastructure and orchestrates workspace lifecycle
@@ -65,59 +65,7 @@ The module creates a secure, least-privilege infrastructure for running Ona work
 
 **Security Rationale**: Workspace VMs have minimal permissions - only metric writing, logging, and reading container images. No access to other workspaces, secrets, or infrastructure management. This limits blast radius if a workspace is compromised.
 
-### 3. Build Cache Service Account (`build_cache`)
-**Purpose**: Manages build cache storage and access
-
-**Display Name**: Ona Build Cache  
-**Account ID**: `{runner_name}-build-cache`  
-**Description**: Service account for GCS build cache operations
-
-**OAuth Scopes**: None (uses IAM permissions only)
-
-**IAM Roles**:
-- `roles/storage.objectAdmin` - Manage build cache objects in Cloud Storage (upload, download, delete cached build artifacts and container layers)
-- `roles/logging.logWriter` - Write logs to Cloud Logging for cache operation auditing
-
-**Security Rationale**: Isolated service account prevents workspace VMs from accessing build cache directly. Runner impersonates this account only when cache operations are needed, providing controlled access and audit trail.
-
-### 4. Secret Manager Service Account (`secret_manager`)
-**Purpose**: Manages workspace secrets and environment variables
-
-**Display Name**: Ona Secret Manager  
-**Account ID**: `{runner_name}-secrets`  
-**Description**: Service account for environment secret management
-
-**OAuth Scopes**: None (uses IAM permissions only)
-
-**IAM Roles**:
-- **Custom Role**: `{runner_name}_secret_manager` - Scoped permissions for secret management:
-  - `secretmanager.secrets.create` - Create new workspace secrets
-  - `secretmanager.secrets.delete` - Delete unused secrets
-  - `secretmanager.secrets.get` - Get secret metadata
-  - `secretmanager.secrets.list` - List secrets for management
-  - `secretmanager.versions.access` - Access secret values
-  - `secretmanager.versions.add` - Add new secret versions
-  - `secretmanager.versions.destroy` - Delete secret versions
-- `roles/logging.logWriter` - Write logs to Cloud Logging for secret operation auditing
-
-**Security Rationale**: Dedicated service account for secret operations with minimal custom permissions (no IAM policy management). Secrets are isolated per workspace. Runner impersonates this account only during secret operations, ensuring secrets are never directly accessible to workspace VMs.
-
-### 5. Pub/Sub Processor Service Account (`pubsub_processor`)
-**Purpose**: Processes Pub/Sub messages for event-driven operations
-
-**Display Name**: Ona Pub/Sub Processor  
-**Account ID**: `{runner_name}-pubsub`  
-**Description**: Service account for processing Pub/Sub compute events
-
-**OAuth Scopes**: None (uses IAM permissions only)
-
-**IAM Roles**:
-- `roles/monitoring.metricWriter` - Write processing metrics for monitoring (message processing rates, queue depths, error rates)
-- `roles/logging.logWriter` - Write logs to Cloud Logging for event processing auditing
-
-**Security Rationale**: Separate service account for async message processing provides isolation from synchronous operations. Limited to metric writing and logging only - no access to compute resources or secrets. The runner service account can impersonate this account for event processing operations.
-
-### 6. Proxy VM Service Account (`proxy_vm`)
+### 3. Proxy VM Service Account (`proxy_vm`)
 **Purpose**: Used by proxy VMs for load balancing and traffic routing
 
 **Display Name**: Ona Proxy VM Service  
@@ -269,36 +217,9 @@ The runner service account uses a custom IAM role with minimal required permissi
 - `iam.serviceAccounts.getAccessToken` - Generate access tokens
 
 
-## Service Account Impersonation and Usage
+## Runner Direct Permissions
 
-**Security Pattern**: The runner uses service account impersonation and controlled usage instead of direct permissions to enhance security and auditability.
-
-**Why Impersonation/Usage Instead of Direct Permissions**:
-- **Temporal Access Control**: Tokens are generated only when needed and have short lifespans (1 hour max)
-- **Audit Trail**: Every impersonation/usage event is logged, providing clear audit trail of when and why privileged operations occurred
-- **Credential Rotation**: No long-lived credentials stored on VMs - tokens are generated on-demand
-- **Scope Limitation**: Each impersonated token has only the permissions of the target service account
-- **Revocation**: Impersonation can be revoked instantly by removing TokenCreator/User roles
-
-The runner service account can impersonate or use other service accounts for specific operations:
-
-### Build Cache Token Generation
-- **Target**: `build_cache` service account
-- **Role**: `roles/iam.serviceAccountTokenCreator`
-- **Purpose**: Generate short-lived tokens for build cache operations (upload/download artifacts)
-- **Security Benefit**: Build cache access is logged and time-limited
-
-### Secret Manager Token Generation
-- **Target**: `secret_manager` service account
-- **Role**: `roles/iam.serviceAccountTokenCreator`
-- **Purpose**: Generate short-lived tokens for secret management operations (create/read workspace secrets)
-- **Security Benefit**: Secret access is logged and time-limited, preventing credential theft
-
-### Pub/Sub Processor Service Account Usage
-- **Target**: `pubsub_processor` service account
-- **Role**: `roles/iam.serviceAccountUser`
-- **Purpose**: Use the pub/sub processor service account for event handling operations
-- **Security Benefit**: Event processing is isolated and auditable through separate service account
+The runner service account directly holds permissions for build cache (GCS), secret management, and pub/sub event processing. These were previously delegated to separate service accounts via impersonation but are now consolidated on the runner SA for simplicity.
 
 ## Audit Logging Configuration
 
