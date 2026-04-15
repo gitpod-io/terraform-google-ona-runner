@@ -61,7 +61,7 @@ resource "google_compute_firewall" "allow_proxy_to_runner_backend" {
 
   allow {
     protocol = "tcp"
-    ports    = [tostring(var.service_ports.runner_http_port), "4430"]
+    ports    = [tostring(var.service_ports.runner_http_port), "4430", "7070"]
   }
 
   source_tags = ["gitpod-proxy"]
@@ -86,7 +86,8 @@ resource "google_compute_firewall" "deny_environments_to_services" {
       tostring(var.service_ports.runner_health_port),
       tostring(var.service_ports.proxy_https_port),
       tostring(var.service_ports.proxy_http_port),
-      "4430"
+      "4430",
+      "7070"
     ]
   }
 
