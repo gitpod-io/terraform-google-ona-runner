@@ -344,68 +344,6 @@ resource "google_project_iam_member" "env_vm_artifact_registry" {
 
 # Logging and monitoring permissions consolidated below
 
-# 3. BUILD CACHE SERVICE ACCOUNT
-# Dedicated for GCS build cache operations
-resource "google_service_account" "build_cache" {
-  count = var.pre_created_service_accounts.build_cache == "" ? 1 : 0
-
-  account_id   = "${var.runner_name}-build-cache"
-  display_name = "Ona Build Cache"
-  description  = "Service account for GCS build cache operations"
-  project      = var.project_id
-}
-
-# Logging permissions consolidated below
-
-# Allow runner to generate tokens for build cache service account
-resource "google_service_account_iam_member" "runner_generate_build_cache_tokens" {
-  count              = !local.using_pre_created_service_accounts && local.runner_sa_email != "" ? 1 : 0
-  service_account_id = local.build_cache_sa_name
-  role               = "roles/iam.serviceAccountTokenCreator"
-  member             = "serviceAccount:${local.runner_sa_email}"
-}
-
-# 4. SECRET MANAGEMENT SERVICE ACCOUNT
-# For environment-specific secrets with scoped access
-resource "google_service_account" "secret_manager" {
-  count = var.pre_created_service_accounts.secret_manager == "" ? 1 : 0
-
-  account_id   = "${var.runner_name}-secrets"
-  display_name = "Ona Secret Manager"
-  description  = "Service account for environment secret management"
-  project      = var.project_id
-}
-
-# Logging permissions consolidated below
-
-# Custom role for secret management
-resource "google_project_iam_custom_role" "secret_manager" {
-  count = var.pre_created_service_accounts.secret_manager == "" ? 1 : 0
-
-  role_id     = "${replace(var.runner_name, "-", "_")}_secret_manager"
-  title       = "Ona Secret Manager"
-  description = "Scoped permissions for environment secret management"
-  project     = var.project_id
-
-  permissions = [
-    "secretmanager.secrets.create",
-    "secretmanager.secrets.delete",
-    "secretmanager.secrets.get",
-    "secretmanager.secrets.list",
-    "secretmanager.versions.access",
-    "secretmanager.versions.add",
-    "secretmanager.versions.destroy"
-  ]
-}
-
-# Allow runner to generate tokens for secret manager
-resource "google_service_account_iam_member" "runner_generate_secret_tokens" {
-  count              = !local.using_pre_created_service_accounts && local.runner_sa_email != "" ? 1 : 0
-  service_account_id = local.secret_manager_sa_name
-  role               = "roles/iam.serviceAccountTokenCreator"
-  member             = "serviceAccount:${local.runner_sa_email}"
-}
-
 # Allow runner control plane to access the Redis credentials secret
 resource "google_secret_manager_secret_iam_member" "runner_cp_redis_secret_access" {
   project   = var.project_id
@@ -421,26 +359,7 @@ resource "google_project_iam_member" "runner_secret_version_manager" {
   member  = "serviceAccount:${local.runner_sa_email}"
 }
 
-# 5. PUB/SUB EVENT PROCESSING SERVICE ACCOUNT
-# For event-driven reconciliation
-resource "google_service_account" "pubsub_processor" {
-  count = var.pre_created_service_accounts.pubsub_processor == "" ? 1 : 0
 
-  account_id   = "${var.runner_name}-pubsub"
-  display_name = "Ona Pub/Sub Processor"
-  description  = "Service account for processing Pub/Sub compute events"
-  project      = var.project_id
-}
-
-# Logging and monitoring permissions consolidated below
-
-# Allow runner to use Pub/Sub processor for event handling
-resource "google_service_account_iam_member" "runner_use_pubsub_processor" {
-  count              = !local.using_pre_created_service_accounts && local.runner_sa_email != "" ? 1 : 0
-  service_account_id = local.pubsub_processor_sa_name
-  role               = "roles/iam.serviceAccountUser"
-  member             = "serviceAccount:${local.runner_sa_email}"
-}
 
 # RUNNER TOKEN SECRET MANAGER RESOURCE
 # Create a secret for storing the runner token securely
@@ -532,26 +451,7 @@ resource "google_project_iam_member" "env_vm_logging" {
   member  = "serviceAccount:${local.environment_vm_sa_email}"
 }
 
-resource "google_project_iam_member" "build_cache_logging" {
-  count   = !local.using_pre_created_service_accounts && local.build_cache_sa_email != "" ? 1 : 0
-  project = var.project_id
-  role    = "roles/logging.logWriter"
-  member  = "serviceAccount:${local.build_cache_sa_email}"
-}
 
-resource "google_project_iam_member" "secret_manager_logging" {
-  count   = !local.using_pre_created_service_accounts && local.secret_manager_sa_email != "" ? 1 : 0
-  project = var.project_id
-  role    = "roles/logging.logWriter"
-  member  = "serviceAccount:${local.secret_manager_sa_email}"
-}
-
-resource "google_project_iam_member" "pubsub_processor_logging" {
-  count   = !local.using_pre_created_service_accounts && local.pubsub_processor_sa_email != "" ? 1 : 0
-  project = var.project_id
-  role    = "roles/logging.logWriter"
-  member  = "serviceAccount:${local.pubsub_processor_sa_email}"
-}
 
 # Monitoring permissions - individual members for each service account
 resource "google_project_iam_member" "runner_cp_monitoring" {
@@ -566,13 +466,6 @@ resource "google_project_iam_member" "env_vm_monitoring" {
   project = var.project_id
   role    = "roles/monitoring.metricWriter"
   member  = "serviceAccount:${local.environment_vm_sa_email}"
-}
-
-resource "google_project_iam_member" "pubsub_processor_monitoring" {
-  count   = !local.using_pre_created_service_accounts && local.pubsub_processor_sa_email != "" ? 1 : 0
-  project = var.project_id
-  role    = "roles/monitoring.metricWriter"
-  member  = "serviceAccount:${local.pubsub_processor_sa_email}"
 }
 
 # Service account for proxy VMs
@@ -770,30 +663,6 @@ resource "google_kms_crypto_key_iam_member" "environment_vm_kms_access" {
   crypto_key_id = local.kms_key_name
   role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
   member        = "serviceAccount:${local.environment_vm_sa_email}"
-}
-
-resource "google_kms_crypto_key_iam_member" "build_cache_kms_access" {
-  count = (var.create_cmek || var.kms_key_name != null) && local.build_cache_sa_email != "" ? 1 : 0
-
-  crypto_key_id = local.kms_key_name
-  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
-  member        = "serviceAccount:${local.build_cache_sa_email}"
-}
-
-resource "google_kms_crypto_key_iam_member" "secret_manager_kms_access" {
-  count = (var.create_cmek || var.kms_key_name != null) && local.secret_manager_sa_email != "" ? 1 : 0
-
-  crypto_key_id = local.kms_key_name
-  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
-  member        = "serviceAccount:${local.secret_manager_sa_email}"
-}
-
-resource "google_kms_crypto_key_iam_member" "pubsub_processor_kms_access" {
-  count = (var.create_cmek || var.kms_key_name != null) && local.pubsub_processor_sa_email != "" ? 1 : 0
-
-  crypto_key_id = local.kms_key_name
-  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
-  member        = "serviceAccount:${local.pubsub_processor_sa_email}"
 }
 
 resource "google_kms_crypto_key_iam_member" "proxy_vm_kms_access" {

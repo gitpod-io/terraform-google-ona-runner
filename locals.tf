@@ -56,22 +56,19 @@ locals {
   logs_url = "https://console.cloud.google.com/logs/query;query=resource.type%%3D%%22gce_instance%%22%%0A%%2528jsonPayload.%%22cos.googleapis.com%%2Fcontainer_name%%22%%3D%%22gitpod-runner%%22%%20OR%%20jsonPayload.%%22cos.googleapis.com%%2Fcontainer_name%%22%%3D%%22gitpod-proxy%%22%%2529;duration=PT3H?project=${var.project_id}"
 
   # Determine if we're using pre-created service accounts (IAM team handles high-privilege operations)
+  # Only considers the 3 active service accounts (runner, environment_vm, proxy_vm).
   using_pre_created_service_accounts = anytrue([
-    for sa in values(var.pre_created_service_accounts) : sa != ""
+    var.pre_created_service_accounts.runner != "",
+    var.pre_created_service_accounts.environment_vm != "",
+    var.pre_created_service_accounts.proxy_vm != "",
   ])
 
   # Service account emails (either created or pre-created) - shared across all files
-  runner_sa_email           = var.pre_created_service_accounts.runner != "" ? var.pre_created_service_accounts.runner : try(google_service_account.runner[0].email, "")
-  environment_vm_sa_email   = var.pre_created_service_accounts.environment_vm != "" ? var.pre_created_service_accounts.environment_vm : try(google_service_account.environment_vm[0].email, "")
-  build_cache_sa_email      = var.pre_created_service_accounts.build_cache != "" ? var.pre_created_service_accounts.build_cache : try(google_service_account.build_cache[0].email, "")
-  secret_manager_sa_email   = var.pre_created_service_accounts.secret_manager != "" ? var.pre_created_service_accounts.secret_manager : try(google_service_account.secret_manager[0].email, "")
-  pubsub_processor_sa_email = var.pre_created_service_accounts.pubsub_processor != "" ? var.pre_created_service_accounts.pubsub_processor : try(google_service_account.pubsub_processor[0].email, "")
-  proxy_vm_sa_email         = var.pre_created_service_accounts.proxy_vm != "" ? var.pre_created_service_accounts.proxy_vm : try(google_service_account.proxy_vm[0].email, "")
+  runner_sa_email         = var.pre_created_service_accounts.runner != "" ? var.pre_created_service_accounts.runner : try(google_service_account.runner[0].email, "")
+  environment_vm_sa_email = var.pre_created_service_accounts.environment_vm != "" ? var.pre_created_service_accounts.environment_vm : try(google_service_account.environment_vm[0].email, "")
+  proxy_vm_sa_email       = var.pre_created_service_accounts.proxy_vm != "" ? var.pre_created_service_accounts.proxy_vm : try(google_service_account.proxy_vm[0].email, "")
 
   # Service account names for IAM bindings (full resource names)
-  runner_sa_name           = var.pre_created_service_accounts.runner != "" ? "projects/${var.project_id}/serviceAccounts/${var.pre_created_service_accounts.runner}" : try(google_service_account.runner[0].name, "")
-  build_cache_sa_name      = var.pre_created_service_accounts.build_cache != "" ? "projects/${var.project_id}/serviceAccounts/${var.pre_created_service_accounts.build_cache}" : try(google_service_account.build_cache[0].name, "")
-  secret_manager_sa_name   = var.pre_created_service_accounts.secret_manager != "" ? "projects/${var.project_id}/serviceAccounts/${var.pre_created_service_accounts.secret_manager}" : try(google_service_account.secret_manager[0].name, "")
-  pubsub_processor_sa_name = var.pre_created_service_accounts.pubsub_processor != "" ? "projects/${var.project_id}/serviceAccounts/${var.pre_created_service_accounts.pubsub_processor}" : try(google_service_account.pubsub_processor[0].name, "")
+  runner_sa_name = var.pre_created_service_accounts.runner != "" ? "projects/${var.project_id}/serviceAccounts/${var.pre_created_service_accounts.runner}" : try(google_service_account.runner[0].name, "")
 
 }

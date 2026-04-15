@@ -220,23 +220,7 @@ logging.logEntries.create
 logging.logs.delete
 ```
 
-### 2. Secret Manager Custom Role
-- **Role ID**: `{runner_name_underscore}_secret_manager` (e.g., `gcp_2_secret_manager`)
-- **Title**: Ona Secret Manager
-- **Description**: Scoped permissions for environment secret management
-
-**Permissions** (7 total):
-```
-secretmanager.secrets.create
-secretmanager.secrets.delete
-secretmanager.secrets.get
-secretmanager.secrets.list
-secretmanager.versions.access
-secretmanager.versions.add
-secretmanager.versions.destroy
-```
-
-### 3. Proxy VM Custom Role
+### 2. Proxy VM Custom Role
 - **Role ID**: `{runner_name_underscore}_proxy_vm` (e.g., `gcp_2_proxy_vm`)
 - **Title**: Ona Proxy VM Minimal
 - **Description**: Minimal permissions for Ona proxy VM instances
@@ -322,9 +306,8 @@ If not pre-created, the module will create the following service accounts:
 - `roles/secretmanager.secretAccessor` on runner token secret
 - `roles/secretmanager.secretAccessor` on metrics configuration secret
 - `roles/secretmanager.secretVersionManager` - Manage secret versions
-- `roles/storage.objectViewer` on runner assets bucket
-- `roles/iam.serviceAccountTokenCreator` on build cache service account
-- `roles/iam.serviceAccountTokenCreator` on secret manager service account
+- `roles/storage.objectAdmin` on runner assets bucket
+- `roles/storage.objectAdmin` on build cache bucket
 - `roles/pubsub.subscriber` on compute events subscription
 - `roles/pubsub.viewer` on dead letter subscription
 - `roles/cloudkms.cryptoKeyEncrypterDecrypter` on KMS key (if CMEK is enabled)
@@ -345,56 +328,7 @@ If not pre-created, the module will create the following service accounts:
 **Resource-Specific Access**:
 - `roles/cloudkms.cryptoKeyEncrypterDecrypter` on KMS key (if CMEK is enabled)
 
-### 3. Build Cache Service Account
-- **Name**: `{runner_name}-build-cache` (e.g., `gcp-2-build-cache`)
-- **Display Name**: Ona Build Cache
-- **Purpose**: GCS build cache operations
-- **Used By**: BuildKit for container image caching
-
-**Custom Roles**: None
-
-**Predefined Roles**:
-- `roles/logging.logWriter` - Write logs
-
-**Resource-Specific Access**:
-- `roles/storage.objectAdmin` on build cache bucket
-- `roles/cloudkms.cryptoKeyEncrypterDecrypter` on KMS key (if CMEK is enabled)
-
-### 4. Secret Manager Service Account
-- **Name**: `{runner_name}-secrets` (e.g., `gcp-2-secrets`)
-- **Display Name**: Ona Secret Manager
-- **Purpose**: Environment-specific secret management
-- **Used By**: Runner for managing user secrets
-
-**Custom Roles**: None (uses custom role #2 via impersonation)
-
-**Predefined Roles**:
-- `roles/logging.logWriter` - Write logs
-
-**Resource-Specific Access**:
-- `roles/cloudkms.cryptoKeyEncrypterDecrypter` on KMS key (if CMEK is enabled)
-
-**Note**: This service account is used via impersonation by the Runner service account
-
-### 5. Pub/Sub Processor Service Account
-- **Name**: `{runner_name}-pubsub` (e.g., `gcp-2-pubsub`)
-- **Display Name**: Ona Pub/Sub Processor
-- **Purpose**: Event-driven reconciliation
-- **Used By**: Event processing workflows
-
-**Custom Roles**: None
-
-**Predefined Roles**:
-- `roles/logging.logWriter` - Write logs
-- `roles/monitoring.metricWriter` - Write metrics
-
-**Resource-Specific Access**:
-- `roles/cloudkms.cryptoKeyEncrypterDecrypter` on KMS key (if CMEK is enabled)
-
-**Service Account Usage**:
-- Runner can use this service account (`roles/iam.serviceAccountUser`)
-
-### 6. Proxy VM Service Account
+### 3. Proxy VM Service Account
 - **Name**: `{runner_name}-proxy-vm` (e.g., `gcp-2-proxy-vm`)
 - **Display Name**: Ona Proxy VM Service
 - **Purpose**: Minimal permissions for proxy functionality
@@ -442,25 +376,7 @@ gcloud iam service-accounts create ${RUNNER_NAME}-env-vm \
     --description="Minimal service account for environment VMs" \
     --project=${PROJECT_ID}
 
-# 3. Build cache service account
-gcloud iam service-accounts create ${RUNNER_NAME}-build-cache \
-    --display-name="Ona Build Cache" \
-    --description="Service account for GCS build cache operations" \
-    --project=${PROJECT_ID}
-
-# 4. Secret manager service account
-gcloud iam service-accounts create ${RUNNER_NAME}-secrets \
-    --display-name="Ona Secret Manager" \
-    --description="Service account for environment secret management" \
-    --project=${PROJECT_ID}
-
-# 5. Pub/Sub processor service account
-gcloud iam service-accounts create ${RUNNER_NAME}-pubsub \
-    --display-name="Ona Pub/Sub Processor" \
-    --description="Service account for processing Pub/Sub compute events" \
-    --project=${PROJECT_ID}
-
-# 6. Proxy VM service account
+# 3. Proxy VM service account
 gcloud iam service-accounts create ${RUNNER_NAME}-proxy-vm \
     --display-name="Ona Proxy VM Service" \
     --description="Service account for Ona proxy VM instances" \
@@ -578,26 +494,7 @@ gcloud iam roles create ${RUNNER_NAME_UNDERSCORE}_runner \
     --project=${PROJECT_ID} \
     --file=runner-role.yaml
 
-# 2. Secret manager custom role
-cat > secret-manager-role.yaml << EOF
-title: "Ona Secret Manager"
-description: "Scoped permissions for environment secret management"
-stage: "GA"
-includedPermissions:
-- secretmanager.secrets.create
-- secretmanager.secrets.delete
-- secretmanager.secrets.get
-- secretmanager.secrets.list
-- secretmanager.versions.access
-- secretmanager.versions.add
-- secretmanager.versions.destroy
-EOF
-
-gcloud iam roles create ${RUNNER_NAME_UNDERSCORE}_secret_manager \
-    --project=${PROJECT_ID} \
-    --file=secret-manager-role.yaml
-
-# 3. Proxy VM custom role
+# 2. Proxy VM custom role
 cat > proxy-vm-role.yaml << EOF
 title: "Ona Proxy VM Minimal"
 description: "Minimal permissions for Ona proxy VM instances"
@@ -617,7 +514,7 @@ gcloud iam roles create ${RUNNER_NAME_UNDERSCORE}_proxy_vm \
     --file=proxy-vm-role.yaml
 
 # Clean up temporary files
-rm -f runner-role.yaml secret-manager-role.yaml proxy-vm-role.yaml
+rm -f runner-role.yaml proxy-vm-role.yaml
 ```
 
 ### Assign Project-Level Permissions
@@ -668,25 +565,6 @@ gcloud projects add-iam-policy-binding ${PROJECT_ID} \
 gcloud projects add-iam-policy-binding ${PROJECT_ID} \
     --member="serviceAccount:${RUNNER_NAME}-env-vm@${PROJECT_ID}.iam.gserviceaccount.com" \
     --role="roles/cloudkms.cryptoKeyEncrypterDecrypter"
-
-# Build cache service account - logging only
-gcloud projects add-iam-policy-binding ${PROJECT_ID} \
-    --member="serviceAccount:${RUNNER_NAME}-build-cache@${PROJECT_ID}.iam.gserviceaccount.com" \
-    --role="roles/logging.logWriter"
-
-# Secret manager service account - logging only
-gcloud projects add-iam-policy-binding ${PROJECT_ID} \
-    --member="serviceAccount:${RUNNER_NAME}-secrets@${PROJECT_ID}.iam.gserviceaccount.com" \
-    --role="roles/logging.logWriter"
-
-# Pub/Sub processor service account - logging and monitoring
-gcloud projects add-iam-policy-binding ${PROJECT_ID} \
-    --member="serviceAccount:${RUNNER_NAME}-pubsub@${PROJECT_ID}.iam.gserviceaccount.com" \
-    --role="roles/logging.logWriter"
-
-gcloud projects add-iam-policy-binding ${PROJECT_ID} \
-    --member="serviceAccount:${RUNNER_NAME}-pubsub@${PROJECT_ID}.iam.gserviceaccount.com" \
-    --role="roles/monitoring.metricWriter"
 
 # Proxy VM service account - proxy functionality
 gcloud projects add-iam-policy-binding ${PROJECT_ID} \
@@ -748,11 +626,6 @@ Project-level roles that need to be manually assigned via the GCP Console or `gc
 | | `roles/secretmanager.secretVersionManager` | |
 | **`${RUNNER_NAME}-env-vm`** | `roles/artifactregistry.reader` | |
 | | `roles/logging.logWriter` | |
-| | `roles/monitoring.metricWriter` | |
-| **`${RUNNER_NAME}-build-cache`** | `roles/logging.logWriter` | |
-| **`${RUNNER_NAME}-secrets`** | `roles/secretmanager.admin` | ★ Secret Manager |
-| | `roles/logging.logWriter` | |
-| **`${RUNNER_NAME}-pubsub`** | `roles/logging.logWriter` | |
 | | `roles/monitoring.metricWriter` | |
 | **`${RUNNER_NAME}-proxy-vm`** | `roles/compute.viewer` | ★ Proxy VM |
 | | `roles/logging.logWriter` | |
@@ -834,24 +707,6 @@ gcloud projects add-iam-policy-binding ${PROJECT_ID} \
 gcloud projects add-iam-policy-binding ${PROJECT_ID} \
   --member="serviceAccount:${SA}" \
   --role="roles/iam.serviceAccountUser"
-```
-
-### Secret Manager Custom Role → Predefined Role
-
-Replace the single secret manager custom role binding with 1 predefined role:
-
-```bash
-export SA="${RUNNER_NAME}-secrets@${PROJECT_ID}.iam.gserviceaccount.com"
-
-# Secret lifecycle and version management.
-# Needed: secrets.create, .delete, .get, .list, versions.access, .add, .destroy
-# Excess: grants 20 additional permissions including secrets.setIamPolicy,
-#   secrets.getIamPolicy, secrets.update, versions.disable/.enable/.get/.list,
-#   and KMS-related permissions.
-# Note: secrets.create and secrets.delete only exist in this admin role.
-gcloud projects add-iam-policy-binding ${PROJECT_ID} \
-  --member="serviceAccount:${SA}" \
-  --role="roles/secretmanager.admin"
 ```
 
 ### Proxy VM Custom Role → Predefined Role
