@@ -281,26 +281,25 @@ variable "kms_key_name" {
 variable "pre_created_service_accounts" {
   description = "Pre-created service accounts to use instead of creating new ones. If provided, all IAM resources become optional."
   type = object({
-    runner           = optional(string, "")
-    environment_vm   = optional(string, "")
+    runner         = optional(string, "")
+    environment_vm = optional(string, "")
+    proxy_vm       = optional(string, "")
+
+    # Deprecated: values are ignored. Kept for backward compatibility.
     build_cache      = optional(string, "")
     secret_manager   = optional(string, "")
     pubsub_processor = optional(string, "")
-    proxy_vm         = optional(string, "")
   })
   default = {
-    runner           = ""
-    environment_vm   = ""
-    build_cache      = ""
-    secret_manager   = ""
-    pubsub_processor = ""
-    proxy_vm         = ""
+    runner         = ""
+    environment_vm = ""
+    proxy_vm       = ""
   }
 
   validation {
     condition = alltrue([
-      for sa in values(var.pre_created_service_accounts) :
-      sa == "" || can(regex("^[a-z][a-z0-9-]{4,28}[a-z0-9]@[a-z0-9-]+\\.iam\\.gserviceaccount\\.com$", sa))
+      for k, sa in var.pre_created_service_accounts :
+      sa == "" || contains(["build_cache", "secret_manager", "pubsub_processor"], k) || can(regex("^[a-z][a-z0-9-]{4,28}[a-z0-9]@[a-z0-9-]+\\.iam\\.gserviceaccount\\.com$", sa))
     ])
     error_message = "Service account emails must be in the format: name@project.iam.gserviceaccount.com"
   }
