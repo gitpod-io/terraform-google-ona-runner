@@ -53,15 +53,3 @@ resource "google_storage_bucket" "build_cache" {
     purpose          = "buildkit-cache"
   })
 }
-
-# IAM binding for dedicated build cache service account
-resource "google_storage_bucket_iam_member" "cache_access" {
-  bucket = google_storage_bucket.build_cache.name
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${local.build_cache_sa_email}"
-
-  depends_on = [google_storage_bucket.build_cache]
-}
-
-# Note: Required APIs (storage.googleapis.com and iamcredentials.googleapis.com) 
-# are enabled by the main services module
