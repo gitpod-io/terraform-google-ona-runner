@@ -442,12 +442,20 @@ resource "google_compute_firewall" "allow_runner_to_environments_egress" {
 }
 
 # Allow environments to access outside the network (egress)
+#
+# UDP egress is intentionally restricted to a small set of ports rather than
+# wide open. This blocks arbitrary UDP-based data exfiltration and reflection
+# /amplification vectors while preserving the developer workflows that
+# legitimately need UDP:
+#   - 53  (DNS)  - name resolution for apt, git, npm, docker pull, etc.
+#   - 123 (NTP)  - clock sync; required for TLS, JWT, git-over-HTTPS
+#   - 443 (QUIC) - HTTP/3 to Google, Cloudflare, GitHub, registries, ...
 resource "google_compute_firewall" "allow_environments_internet_egress" {
   name    = "${var.runner_name}-allow-env-internet-egress"
   network = var.vpc_name
   project = local.vpc_project_id
 
-  description = "Allow environments to access outside the network"
+  description = "Allow environments to access outside the network (UDP restricted to DNS/NTP/QUIC)"
   direction   = "EGRESS"
   priority    = 1000
 
@@ -457,6 +465,7 @@ resource "google_compute_firewall" "allow_environments_internet_egress" {
 
   allow {
     protocol = "udp"
+    ports    = ["53", "123", "443"]
   }
 
   allow {
