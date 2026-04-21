@@ -183,10 +183,11 @@ pubsub.topics.get
 pubsub.topics.list
 
 # IAM (service account management)
-iam.serviceAccounts.actAs
+# actAs (roles/iam.serviceAccountUser) is granted per-SA on the runner,
+# environment_vm, and proxy_vm SAs via google_service_account_iam_member
+# resources, scoped to those SAs only.
 iam.serviceAccounts.getIamPolicy
 iam.serviceAccounts.setIamPolicy
-iam.serviceAccounts.getAccessToken
 
 # Instance templates and groups
 compute.instanceTemplates.create
@@ -461,10 +462,12 @@ includedPermissions:
 - pubsub.subscriptions.consume
 - pubsub.topics.get
 - pubsub.topics.list
-- iam.serviceAccounts.actAs
 - iam.serviceAccounts.getIamPolicy
 - iam.serviceAccounts.setIamPolicy
-- iam.serviceAccounts.getAccessToken
+  - `iam.serviceAccounts.actAs` is granted per-SA on the runner,
+    environment_vm, and proxy_vm SAs via
+    `google_service_account_iam_member` resources, scoped to those SAs
+    only.
 - compute.instanceTemplates.create
 - compute.instanceTemplates.delete
 - compute.instanceTemplates.get
