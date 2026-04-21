@@ -183,11 +183,9 @@ pubsub.topics.get
 pubsub.topics.list
 
 # IAM (service account management)
-# NOTE: actAs (roles/iam.serviceAccountUser) is granted per-SA on the runner,
-# environment_vm, and proxy_vm SAs only — not project-wide — to limit blast
-# radius. getAccessToken is not needed: the runner authenticates via its
-# attached SA through the metadata server (ADC), not via the IAM Credentials
-# API.
+# actAs (roles/iam.serviceAccountUser) is granted per-SA on the runner,
+# environment_vm, and proxy_vm SAs via google_service_account_iam_member
+# resources, scoped to those SAs only.
 iam.serviceAccounts.getIamPolicy
 iam.serviceAccounts.setIamPolicy
 
@@ -466,10 +464,10 @@ includedPermissions:
 - pubsub.topics.list
 - iam.serviceAccounts.getIamPolicy
 - iam.serviceAccounts.setIamPolicy
-  - NOTE: `iam.serviceAccounts.actAs` is granted per-SA on the runner,
-    environment_vm, and proxy_vm SAs only — not project-wide. The
-    `iam.serviceAccounts.getAccessToken` permission is not needed by the
-    runner.
+  - `iam.serviceAccounts.actAs` is granted per-SA on the runner,
+    environment_vm, and proxy_vm SAs via
+    `google_service_account_iam_member` resources, scoped to those SAs
+    only.
 - compute.instanceTemplates.create
 - compute.instanceTemplates.delete
 - compute.instanceTemplates.get
