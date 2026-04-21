@@ -206,11 +206,18 @@ resource "google_project_iam_custom_role" "runner" {
     "pubsub.topics.get",
     "pubsub.topics.list",
 
-    # IAM permissions for service account management
-    "iam.serviceAccounts.actAs",
+    # IAM permissions for service account management.
+    # NOTE: actAs (roles/iam.serviceAccountUser) is granted per-SA via
+    # google_service_account_iam_member resources below — only on the SAs
+    # the runner needs to attach to instances/templates (runner, env VM,
+    # proxy VM). It is intentionally NOT granted at the project level so
+    # the runner cannot impersonate unrelated service accounts.
+    # getAccessToken is unused: the runner authenticates via its attached
+    # SA through the metadata server (Application Default Credentials),
+    # which does not require this permission. It would only be needed to
+    # impersonate a different SA via the IAM Credentials API.
     "iam.serviceAccounts.getIamPolicy",
     "iam.serviceAccounts.setIamPolicy",
-    "iam.serviceAccounts.getAccessToken",
 
     # Instance template permissions for runner control plane
     "compute.instanceTemplates.create",
@@ -671,4 +678,60 @@ resource "google_kms_crypto_key_iam_member" "proxy_vm_kms_access" {
   crypto_key_id = local.kms_key_name
   role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
   member        = "serviceAccount:${local.proxy_vm_sa_email}"
+}
+
+# ================================
+# RUNNER actAs BINDINGS (PER-SA)
+# ================================
+# The runner needs roles/iam.serviceAccountUser (i.e. iam.serviceAccounts.actAs)
+# to attach service accounts to the instances and instance templates it
+# creates:
+#   - environment_vm_sa: attached to environment VMs
+#                        (compute.instances.setServiceAccount).
+#   - proxy_vm_sa:       attached to proxy VM instance templates.
+#   - runner_sa (self):  attached to runner VM instance templates managed
+#                        by the runner control plane during self-update.
+#
+# Granting these per-SA — instead of project-wide — limits the blast radius
+# so the runner cannot impersonate unrelated service accounts in the
+# project.
+#
+# When pre_created_service_accounts is set, the IAM team is responsible for
+# binding roles/iam.serviceAccountUser on the relevant SAs to the runner
+# SA; the module skips these bindings to avoid touching IAM on resources
+# it does not manage.
+resource "google_service_account_iam_member" "runner_actas_runner" {
+  count = !local.using_pre_created_service_accounts && local.runner_sa_email != "" ? 1 : 0
+
+  service_account_id = local.runner_sa_name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${local.runner_sa_email}"
+
+  depends_on = [google_service_account.runner]
+}
+
+resource "google_service_account_iam_member" "runner_actas_environment_vm" {
+  count = !local.using_pre_created_service_accounts && local.runner_sa_email != "" && local.environment_vm_sa_email != "" ? 1 : 0
+
+  service_account_id = local.environment_vm_sa_name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${local.runner_sa_email}"
+
+  depends_on = [
+    google_service_account.runner,
+    google_service_account.environment_vm,
+  ]
+}
+
+resource "google_service_account_iam_member" "runner_actas_proxy_vm" {
+  count = !local.using_pre_created_service_accounts && local.runner_sa_email != "" && local.proxy_vm_sa_email != "" ? 1 : 0
+
+  service_account_id = local.proxy_vm_sa_name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${local.runner_sa_email}"
+
+  depends_on = [
+    google_service_account.runner,
+    google_service_account.proxy_vm,
+  ]
 }
