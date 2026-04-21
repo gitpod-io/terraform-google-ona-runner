@@ -206,11 +206,13 @@ resource "google_project_iam_custom_role" "runner" {
     "pubsub.topics.get",
     "pubsub.topics.list",
 
-    # IAM permissions for service account management
-    "iam.serviceAccounts.actAs",
+    # IAM permissions for service account management.
+    # actAs (roles/iam.serviceAccountUser) is granted per-SA via
+    # google_service_account_iam_member resources below — only on the
+    # runner, environment_vm, and proxy_vm SAs the runner needs to attach
+    # to instances and instance templates.
     "iam.serviceAccounts.getIamPolicy",
     "iam.serviceAccounts.setIamPolicy",
-    "iam.serviceAccounts.getAccessToken",
 
     # Instance template permissions for runner control plane
     "compute.instanceTemplates.create",
@@ -671,4 +673,56 @@ resource "google_kms_crypto_key_iam_member" "proxy_vm_kms_access" {
   crypto_key_id = local.kms_key_name
   role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
   member        = "serviceAccount:${local.proxy_vm_sa_email}"
+}
+
+# ================================
+# RUNNER actAs BINDINGS (PER-SA)
+# ================================
+# Grants the runner SA roles/iam.serviceAccountUser on the three SAs it
+# attaches to instances and instance templates:
+#   - environment_vm_sa: attached to environment VMs.
+#   - proxy_vm_sa:       attached to proxy VM instance templates.
+#   - runner_sa (self):  attached to runner VM instance templates.
+#
+# Scoped per-SA so the runner cannot impersonate unrelated service
+# accounts in the project.
+#
+# When pre_created_service_accounts is set the operator is responsible
+# for granting roles/iam.serviceAccountUser on the relevant SAs to the
+# runner SA out of band; the module does not manage IAM on SAs it did
+# not create.
+resource "google_service_account_iam_member" "runner_actas_runner" {
+  count = !local.using_pre_created_service_accounts && local.runner_sa_email != "" ? 1 : 0
+
+  service_account_id = local.runner_sa_name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${local.runner_sa_email}"
+
+  depends_on = [google_service_account.runner]
+}
+
+resource "google_service_account_iam_member" "runner_actas_environment_vm" {
+  count = !local.using_pre_created_service_accounts && local.runner_sa_email != "" && local.environment_vm_sa_email != "" ? 1 : 0
+
+  service_account_id = local.environment_vm_sa_name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${local.runner_sa_email}"
+
+  depends_on = [
+    google_service_account.runner,
+    google_service_account.environment_vm,
+  ]
+}
+
+resource "google_service_account_iam_member" "runner_actas_proxy_vm" {
+  count = !local.using_pre_created_service_accounts && local.runner_sa_email != "" && local.proxy_vm_sa_email != "" ? 1 : 0
+
+  service_account_id = local.proxy_vm_sa_name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${local.runner_sa_email}"
+
+  depends_on = [
+    google_service_account.runner,
+    google_service_account.proxy_vm,
+  ]
 }

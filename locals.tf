@@ -69,6 +69,8 @@ locals {
   proxy_vm_sa_email       = var.pre_created_service_accounts.proxy_vm != "" ? var.pre_created_service_accounts.proxy_vm : try(google_service_account.proxy_vm[0].email, "")
 
   # Service account names for IAM bindings (full resource names)
-  runner_sa_name = var.pre_created_service_accounts.runner != "" ? "projects/${var.project_id}/serviceAccounts/${var.pre_created_service_accounts.runner}" : try(google_service_account.runner[0].name, "")
+  runner_sa_name         = var.pre_created_service_accounts.runner != "" ? "projects/${var.project_id}/serviceAccounts/${var.pre_created_service_accounts.runner}" : try(google_service_account.runner[0].name, "")
+  environment_vm_sa_name = var.pre_created_service_accounts.environment_vm != "" ? "projects/${var.project_id}/serviceAccounts/${var.pre_created_service_accounts.environment_vm}" : try(google_service_account.environment_vm[0].name, "")
+  proxy_vm_sa_name       = var.pre_created_service_accounts.proxy_vm != "" ? "projects/${var.project_id}/serviceAccounts/${var.pre_created_service_accounts.proxy_vm}" : try(google_service_account.proxy_vm[0].name, "")
 
 }

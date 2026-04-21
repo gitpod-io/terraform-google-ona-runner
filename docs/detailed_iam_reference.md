@@ -210,11 +210,16 @@ The runner service account uses a custom IAM role with minimal required permissi
 
 ### IAM Permissions
 
-**Service Account Management**:
-- `iam.serviceAccounts.actAs` - Impersonate other service accounts
+**Service Account Management** (project-level on the runner custom role):
 - `iam.serviceAccounts.getIamPolicy` - Get service account IAM policies
 - `iam.serviceAccounts.setIamPolicy` - Set service account IAM policies
-- `iam.serviceAccounts.getAccessToken` - Generate access tokens
+
+**Per-SA bindings** (granted via `google_service_account_iam_member` on
+specific SAs only):
+- `roles/iam.serviceAccountUser` (i.e. `iam.serviceAccounts.actAs`) on
+  the runner, environment_vm, and proxy_vm service accounts. Required to
+  attach those SAs to the instances and instance templates the runner
+  creates.
 
 
 ## Runner Direct Permissions
