@@ -1,0 +1,23 @@
+proxy-vm.tf
+  c1dc976d149c652a 80-86,92
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.0",
+  "base_commit_sha": "13ed09d2f01bb42f6eec003b69a021bf19667de3",
+  "prompts": {
+    "c1dc976d149c652a": {
+      "agent_id": {
+        "tool": "Ona",
+        "id": "session-15082",
+        "model": "opus-4.6"
+      },
+      "human_author": "Nandaja",
+      "messages": [],
+      "total_additions": 8,
+      "total_deletions": 1,
+      "accepted_lines": 8,
+      "overriden_lines": 0
+    }
+  }
+}
