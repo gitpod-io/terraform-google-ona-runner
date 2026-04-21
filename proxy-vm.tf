@@ -77,19 +77,12 @@ resource "google_compute_instance_template" "proxy" {
 
   service_account {
     email = local.proxy_vm_sa_email
-    # The proxy is read-only to GCP APIs: it lists/gets compute instances
-    # to resolve runner/env IPs, pulls its container image from Artifact
-    # Registry, reads the CA cert and docker config from GCS, and reads
-    # the metrics secret from Secret Manager. It writes only logs and
-    # metrics. cloud-platform.read-only is a strict superset of the read
-    # access the proxy needs (and covers Secret Manager and Artifact
-    # Registry, which have no narrower OAuth scopes).
     scopes = [
       "https://www.googleapis.com/auth/logging.write",
       "https://www.googleapis.com/auth/monitoring.write",
       "https://www.googleapis.com/auth/compute.readonly",
       "https://www.googleapis.com/auth/devstorage.read_only",
-      "https://www.googleapis.com/auth/cloud-platform.read-only"
+      "https://www.googleapis.com/auth/cloud-platform"
     ]
   }
 
