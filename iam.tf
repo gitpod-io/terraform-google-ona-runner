@@ -120,6 +120,7 @@ resource "google_project_iam_custom_role" "runner" {
     "compute.instances.list",
     "compute.instances.start",
     "compute.instances.stop",
+    "compute.instances.resume",
     "compute.instances.setLabels",
     "compute.instances.setMetadata",
     "compute.instances.setTags",
