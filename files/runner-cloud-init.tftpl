@@ -424,18 +424,22 @@ write_files:
       REMOTE_PASSWORD=$(echo "$SECRET_DATA" | jq -r '.password // ""')
       LOCAL_REMOTE_WRITE_URL=$(echo "$SECRET_DATA" | jq -r '.localRemoteWriteUrl // ""')
       RUNNER_ID=$(echo "$SECRET_DATA" | jq -r '.runnerId // ""')
+      ORGANIZATION_ID=$(echo "$SECRET_DATA" | jq -r '.organizationId // ""')
       # Read allowlist as a bash array of prefixes
       mapfile -t ALLOWLIST_PREFIXES < <(echo "$SECRET_DATA" | jq -r '.allowlistPrefixes // [] | .[]')
 
-      log "Metrics enabled: $ENABLE_METRICS, URL: $REMOTE_URL, local remote write: $LOCAL_REMOTE_WRITE_URL, runner_id: $RUNNER_ID, allowlist prefixes: $${#ALLOWLIST_PREFIXES[@]}"
+      log "Metrics enabled: $ENABLE_METRICS, URL: $REMOTE_URL, local remote write: $LOCAL_REMOTE_WRITE_URL, runner_id: $RUNNER_ID, organization_id: $ORGANIZATION_ID, allowlist prefixes: $${#ALLOWLIST_PREFIXES[@]}"
 
       # Generate final configuration using template substitution
       sed -e "s/{{INSTANCE_NAME}}/$INSTANCE_NAME/g" \
           /var/lib/prometheus/prometheus-template.yml > /tmp/prometheus.yml.new
 
-      # Add runner_id to external_labels if available
+      # Add runner_id and organization_id to external_labels if available
       if [ -n "$RUNNER_ID" ]; then
           sed -i "/external_labels:/a\\    runner_id: $RUNNER_ID" /tmp/prometheus.yml.new
+      fi
+      if [ -n "$ORGANIZATION_ID" ]; then
+          sed -i "/external_labels:/a\\    organization_id: $ORGANIZATION_ID" /tmp/prometheus.yml.new
       fi
 
       # Build remote_write configuration from available targets

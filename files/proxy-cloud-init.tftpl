@@ -428,12 +428,22 @@ write_files:
       REMOTE_URL=$(echo "$SECRET_DATA" | jq -r '.url // ""')
       REMOTE_USER=$(echo "$SECRET_DATA" | jq -r '.user // ""')
       REMOTE_PASSWORD=$(echo "$SECRET_DATA" | jq -r '.password // ""')
+      RUNNER_ID=$(echo "$SECRET_DATA" | jq -r '.runnerId // ""')
+      ORGANIZATION_ID=$(echo "$SECRET_DATA" | jq -r '.organizationId // ""')
 
       log "Metrics enabled: $ENABLE_METRICS, URL: $REMOTE_URL"
 
       # Generate final configuration using template substitution
       sed -e "s/{{INSTANCE_NAME}}/$INSTANCE_NAME/g" \
           /var/lib/prometheus/prometheus-template.yml > /tmp/prometheus.yml.new
+
+      # Add runner_id and organization_id to external_labels if available
+      if [ -n "$RUNNER_ID" ]; then
+          sed -i "/external_labels:/a\\    runner_id: $RUNNER_ID" /tmp/prometheus.yml.new
+      fi
+      if [ -n "$ORGANIZATION_ID" ]; then
+          sed -i "/external_labels:/a\\    organization_id: $ORGANIZATION_ID" /tmp/prometheus.yml.new
+      fi
 
       # Add remote write configuration if metrics are enabled
       if [ "$ENABLE_METRICS" = "true" ] && [ -n "$REMOTE_URL" ]; then
