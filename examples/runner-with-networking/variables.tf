@@ -158,11 +158,6 @@ variable "create_cmek" {
   default     = false
 }
 
-variable "mig_warm_pool_enabled" {
-  description = "Enable warm pool support using GCP Managed Instance Groups (MIGs) for faster environment startup"
-  type        = bool
-  default     = false
-}
 
 variable "kms_key_name" {
   description = "The KMS key name for CMEK encryption of GCP resources. Only used when create_cmek = false. Ignored when create_cmek = true."
