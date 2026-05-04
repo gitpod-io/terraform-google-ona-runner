@@ -344,8 +344,4 @@ variable "honeycomb_api_key" {
   sensitive   = true
 }
 
-variable "mig_warm_pool_enabled" {
-  description = "Enable warm pool support using GCP Managed Instance Groups (MIGs) for faster environment startup"
-  type        = bool
-  default     = false
-}
+

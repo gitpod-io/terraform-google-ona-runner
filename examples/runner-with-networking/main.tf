@@ -171,7 +171,7 @@ module "runner" {
   routable_subnet_name  = local.runner_subnet_name
   create_cmek           = var.create_cmek
   kms_key_name          = var.kms_key_name
-  mig_warm_pool_enabled = var.mig_warm_pool_enabled
+
   custom_images         = var.custom_images
   enable_agents         = var.enable_agents
   honeycomb_api_key     = var.honeycomb_api_key

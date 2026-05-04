@@ -141,7 +141,7 @@ data "cloudinit_config" "runner" {
       AGENT_BUCKET_NAME                    = local.agent_bucket_name
       RUNNER_ASSETS_BUCKET_NAME            = google_storage_bucket.runner_assets.name
       HONEYCOMB_API_KEY                    = var.honeycomb_api_key
-      MIG_WARM_POOL_ENABLED                = var.mig_warm_pool_enabled
+      MIG_WARM_POOL_ENABLED                = true
       # Proxy configuration
       HTTP_PROXY  = local.http_proxy
       HTTPS_PROXY = local.https_proxy
