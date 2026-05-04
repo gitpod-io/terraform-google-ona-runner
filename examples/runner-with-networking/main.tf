@@ -168,14 +168,14 @@ module "runner" {
   proxy_vm_config  = local.selected_profile.proxy_vm_config
   redis_config     = local.selected_profile.redis_config
 
-  routable_subnet_name  = local.runner_subnet_name
-  create_cmek           = var.create_cmek
-  kms_key_name          = var.kms_key_name
+  routable_subnet_name = local.runner_subnet_name
+  create_cmek          = var.create_cmek
+  kms_key_name         = var.kms_key_name
 
-  custom_images         = var.custom_images
-  enable_agents         = var.enable_agents
-  honeycomb_api_key     = var.honeycomb_api_key
-  labels                = var.labels
+  custom_images     = var.custom_images
+  enable_agents     = var.enable_agents
+  honeycomb_api_key = var.honeycomb_api_key
+  labels            = var.labels
 
   depends_on = [module.networking, module.dns, module.self_signed_cert, module.certbot]
 }
