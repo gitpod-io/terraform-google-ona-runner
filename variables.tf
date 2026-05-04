@@ -343,5 +343,3 @@ variable "honeycomb_api_key" {
   default     = ""
   sensitive   = true
 }
-
-
