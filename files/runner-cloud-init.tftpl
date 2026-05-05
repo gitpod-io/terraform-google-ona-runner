@@ -423,12 +423,14 @@ write_files:
       REMOTE_USER=$(echo "$SECRET_DATA" | jq -r '.user // ""')
       REMOTE_PASSWORD=$(echo "$SECRET_DATA" | jq -r '.password // ""')
       LOCAL_REMOTE_WRITE_URL=$(echo "$SECRET_DATA" | jq -r '.localRemoteWriteUrl // ""')
+      MANAGED_ENDPOINT_URL=$(echo "$SECRET_DATA" | jq -r '.managedEndpointUrl // ""')
+      MANAGED_BEARER_TOKEN=$(echo "$SECRET_DATA" | jq -r '.managedBearerToken // ""')
       RUNNER_ID=$(echo "$SECRET_DATA" | jq -r '.runnerId // ""')
       ORGANIZATION_ID=$(echo "$SECRET_DATA" | jq -r '.organizationId // ""')
       # Read allowlist as a bash array of prefixes
       mapfile -t ALLOWLIST_PREFIXES < <(echo "$SECRET_DATA" | jq -r '.allowlistPrefixes // [] | .[]')
 
-      log "Metrics enabled: $ENABLE_METRICS, URL: $REMOTE_URL, local remote write: $LOCAL_REMOTE_WRITE_URL, runner_id: $RUNNER_ID, organization_id: $ORGANIZATION_ID, allowlist prefixes: $${#ALLOWLIST_PREFIXES[@]}"
+      log "Metrics enabled: $ENABLE_METRICS, URL: $REMOTE_URL, managed endpoint: $MANAGED_ENDPOINT_URL, local remote write: $LOCAL_REMOTE_WRITE_URL, runner_id: $RUNNER_ID, organization_id: $ORGANIZATION_ID, allowlist prefixes: $${#ALLOWLIST_PREFIXES[@]}"
 
       # Generate final configuration using template substitution
       sed -e "s/{{INSTANCE_NAME}}/$INSTANCE_NAME/g" \
@@ -464,8 +466,43 @@ write_files:
           fi
       fi
 
-      # Add local remote write target for managed metrics pipeline
-      if [ -n "$LOCAL_REMOTE_WRITE_URL" ]; then
+      # Build allowlist regex once — reused by both managed and local targets.
+      ALLOWLIST_REGEX=""
+      if [ $${#ALLOWLIST_PREFIXES[@]} -gt 0 ]; then
+          ALLOWLIST_REGEX="("
+          for i in "$${!ALLOWLIST_PREFIXES[@]}"; do
+              if [ "$i" -gt 0 ]; then ALLOWLIST_REGEX+="|"; fi
+              ALLOWLIST_REGEX+="$${ALLOWLIST_PREFIXES[$i]}.*"
+          done
+          ALLOWLIST_REGEX+=")"
+      fi
+
+      # Helper: append write_relabel_configs for the allowlist.
+      append_allowlist_relabel() {
+          if [ -n "$ALLOWLIST_REGEX" ]; then
+              echo "    write_relabel_configs:" >> /tmp/prometheus.yml.new
+              echo "      - source_labels: [__name__]" >> /tmp/prometheus.yml.new
+              echo "        regex: '$ALLOWLIST_REGEX'" >> /tmp/prometheus.yml.new
+              echo "        action: keep" >> /tmp/prometheus.yml.new
+          fi
+      }
+
+      # Add managed endpoint direct push (preferred over local receiver).
+      # Uses a scoped JWT to push metrics directly to the management plane.
+      if [ -n "$MANAGED_ENDPOINT_URL" ] && [ -n "$MANAGED_BEARER_TOKEN" ]; then
+          log "Adding managed endpoint remote write target: $MANAGED_ENDPOINT_URL"
+          if [ "$HAS_REMOTE_WRITE" = "false" ]; then
+              echo "" >> /tmp/prometheus.yml.new
+              echo "remote_write:" >> /tmp/prometheus.yml.new
+              HAS_REMOTE_WRITE=true
+          fi
+          echo "  - url: $MANAGED_ENDPOINT_URL" >> /tmp/prometheus.yml.new
+          echo "    authorization:" >> /tmp/prometheus.yml.new
+          echo "      type: Bearer" >> /tmp/prometheus.yml.new
+          echo "      credentials: $MANAGED_BEARER_TOKEN" >> /tmp/prometheus.yml.new
+          append_allowlist_relabel
+      elif [ -n "$LOCAL_REMOTE_WRITE_URL" ]; then
+          # Fallback: local remote write target for managed metrics pipeline.
           log "Adding local remote write target: $LOCAL_REMOTE_WRITE_URL"
           if [ "$HAS_REMOTE_WRITE" = "false" ]; then
               echo "" >> /tmp/prometheus.yml.new
@@ -473,24 +510,7 @@ write_files:
               HAS_REMOTE_WRITE=true
           fi
           echo "  - url: $LOCAL_REMOTE_WRITE_URL" >> /tmp/prometheus.yml.new
-
-          # Add write_relabel_configs to filter by allowlist prefixes.
-          # Only metrics matching these prefixes are forwarded to the
-          # managed metrics pipeline. Uses a single regex with alternation.
-          if [ $${#ALLOWLIST_PREFIXES[@]} -gt 0 ]; then
-              # Build regex: (prefix1.*|prefix2.*|...)
-              REGEX="("
-              for i in "$${!ALLOWLIST_PREFIXES[@]}"; do
-                  if [ "$i" -gt 0 ]; then REGEX+="|"; fi
-                  REGEX+="$${ALLOWLIST_PREFIXES[$i]}.*"
-              done
-              REGEX+=")"
-
-              echo "    write_relabel_configs:" >> /tmp/prometheus.yml.new
-              echo "      - source_labels: [__name__]" >> /tmp/prometheus.yml.new
-              echo "        regex: '$REGEX'" >> /tmp/prometheus.yml.new
-              echo "        action: keep" >> /tmp/prometheus.yml.new
-          fi
+          append_allowlist_relabel
       fi
 
       # Check if configuration changed
