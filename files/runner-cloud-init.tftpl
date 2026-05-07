@@ -501,6 +501,12 @@ write_files:
           echo "      type: Bearer" >> /tmp/prometheus.yml.new
           echo "      credentials: $MANAGED_BEARER_TOKEN" >> /tmp/prometheus.yml.new
           append_allowlist_relabel
+
+          # Audit: send the same filtered payload to the local audit receiver
+          # which persists each write to GCS for customer audit trails.
+          log "Adding metrics audit receiver remote write target"
+          echo "  - url: http://127.0.0.1:9095/write" >> /tmp/prometheus.yml.new
+          append_allowlist_relabel
       elif [ -n "$LOCAL_REMOTE_WRITE_URL" ]; then
           # Fallback: local remote write target for managed metrics pipeline.
           log "Adding local remote write target: $LOCAL_REMOTE_WRITE_URL"
@@ -596,6 +602,8 @@ write_files:
       INSTANCE_GROUP_NAME=${INSTANCE_GROUP_NAME}
       BUILD_CACHE_BUCKET=${BUILD_CACHE_BUCKET}
       GITPOD_DEVELOPMENT_VERSION=${DEVELOPMENT_VERSION}
+      MANAGED_METRICS_DIRECT_PUSH=true
+      RUNNER_ASSETS_BUCKET_NAME=${RUNNER_ASSETS_BUCKET_NAME}
       PUBSUB_SUBSCRIPTION_ID=${PUBSUB_SUBSCRIPTION_ID}
       AUTH_PROXY_URL=${AUTH_PROXY_URL}
       RUNNER_LOGS_URL="${RUNNER_LOGS_URL}"
@@ -702,6 +710,7 @@ write_files:
         --env https_proxy=${HTTPS_PROXY} \
         --env all_proxy=${ALL_PROXY} \
         --env GITPOD_DEVELOPMENT_VERSION=${DEVELOPMENT_VERSION} \
+        --env MANAGED_METRICS_DIRECT_PUSH=true \
         --env no_proxy=${NO_PROXY} \
 %{ if HAS_TRUST_BUNDLE ~}
         --volume /var/lib/gitpod/certs/gitpod-custom-ca.crt:/etc/ssl/certs/gitpod-trust-bundle.crt:ro \
@@ -880,6 +889,91 @@ write_files:
       # Execute main function
       main "$@"
 
+  # Metrics audit receiver — accepts Prometheus remote_write POSTs and
+  # writes each payload to GCS so customers can audit exactly what data
+  # leaves their network. Listens on 127.0.0.1:9095.
+  - path: /var/lib/gitpod/metrics-audit-receiver.py
+    permissions: '0755'
+    content: |
+      #!/usr/bin/env python3
+      """Receives Prometheus remote_write payloads and writes them to GCS."""
+      import os
+      import subprocess
+      import sys
+      import time
+      from http.server import HTTPServer, BaseHTTPRequestHandler
+
+      LISTEN_ADDR = "127.0.0.1"
+      LISTEN_PORT = 9095
+      BUCKET = os.environ.get("RUNNER_ASSETS_BUCKET_NAME", "")
+      RUNNER_ID = os.environ.get("RUNNER_ID", "")
+
+      class AuditHandler(BaseHTTPRequestHandler):
+          def do_POST(self):
+              length = int(self.headers.get("Content-Length", 0))
+              if length == 0:
+                  self.send_response(204)
+                  self.end_headers()
+                  return
+
+              body = self.rfile.read(length)
+              now = time.gmtime()
+              key = "metrics/runner/{rid}/{y}/{m:02d}/{d:02d}/{H:02d}{M:02d}{S:02d}.pb.snappy".format(
+                  rid=RUNNER_ID,
+                  y=now.tm_year, m=now.tm_mon, d=now.tm_mday,
+                  H=now.tm_hour, M=now.tm_min, S=now.tm_sec,
+              )
+              dst = "gs://{}/{}".format(BUCKET, key)
+
+              try:
+                  proc = subprocess.run(
+                      ["gcloud", "storage", "cp", "-", dst],
+                      input=body, capture_output=True, timeout=30,
+                  )
+                  if proc.returncode != 0:
+                      sys.stderr.write("gcloud cp failed: {}\n".format(proc.stderr.decode()))
+                      self.send_response(502)
+                      self.end_headers()
+                      return
+              except Exception as e:
+                  sys.stderr.write("audit write error: {}\n".format(e))
+                  self.send_response(502)
+                  self.end_headers()
+                  return
+
+              self.send_response(204)
+              self.end_headers()
+
+          def log_message(self, fmt, *args):
+              pass  # suppress per-request access logs
+
+      if not BUCKET or not RUNNER_ID:
+          sys.stderr.write("RUNNER_ASSETS_BUCKET_NAME or RUNNER_ID not set, exiting\n")
+          sys.exit(1)
+
+      server = HTTPServer((LISTEN_ADDR, LISTEN_PORT), AuditHandler)
+      sys.stderr.write("metrics-audit-receiver listening on {}:{}\n".format(LISTEN_ADDR, LISTEN_PORT))
+      server.serve_forever()
+
+  # Systemd service for the metrics audit receiver
+  - path: /var/lib/systemd/system/metrics-audit-receiver.service
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=Metrics Audit Receiver
+      After=network.target
+      Before=prometheus.service
+
+      [Service]
+      Type=simple
+      Restart=always
+      RestartSec=5s
+      EnvironmentFile=/var/lib/gitpod/runner.env
+      ExecStart=/var/lib/gitpod/metrics-audit-receiver.py
+
+      [Install]
+      WantedBy=multi-user.target
+
   # Enhanced startup script with better error handling and validation
   - path: /tmp/container-startup.sh
     permissions: '0755'
@@ -1018,6 +1112,7 @@ write_files:
           "node-exporter.service"
           "prometheus-config-updater.service"
           "prometheus-config-updater.timer"
+          "metrics-audit-receiver.service"
           "gitpod-auth-proxy.service"
           "gitpod-runner.service"
       )
