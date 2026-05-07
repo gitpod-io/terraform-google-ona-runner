@@ -172,10 +172,9 @@ module "runner" {
   create_cmek          = var.create_cmek
   kms_key_name         = var.kms_key_name
 
-  custom_images     = var.custom_images
-  enable_agents     = var.enable_agents
-  honeycomb_api_key = var.honeycomb_api_key
-  labels            = var.labels
+  custom_images = var.custom_images
+  enable_agents = var.enable_agents
+  labels        = var.labels
 
   depends_on = [module.networking, module.dns, module.self_signed_cert, module.certbot]
 }
