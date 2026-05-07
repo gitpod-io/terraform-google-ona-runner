@@ -611,10 +611,6 @@ write_files:
       https_proxy=${HTTPS_PROXY}
       all_proxy=${ALL_PROXY}
       no_proxy=${NO_PROXY}
-%{ if HONEYCOMB_API_KEY != "" ~}
-      HONEYCOMB_API_KEY=${HONEYCOMB_API_KEY}
-%{ endif ~}
-
 %{ if AUTH_PROXY_TLS_CERT != "" ~}
   # Auth proxy TLS certificate for verification (CA trust)
   - path: /var/lib/gitpod/auth-proxy-ca.crt
