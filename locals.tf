@@ -32,6 +32,39 @@ locals {
 
   runner_dev_image = var.development_version != "" ? "us-docker.pkg.dev/gitpod-next-production/gitpod-next/gitpod-gcp-runner:${var.development_version}" : local.runner_image
 
+  # Container resource limits derived from VM machine type.
+  # GCP standard machine types follow the pattern {family}-standard-{vcpus}
+  # with memory = vcpus * 4 GB. We reserve ~25% for the host OS and Docker
+  # daemon, then allocate the rest across containers.
+  #
+  # Aligned with EC2 Fargate runner limits:
+  #   EC2 small:  1 vCPU /  3 GB task  → runner gets ~1 GB
+  #   EC2 large:  8 vCPU / 16 GB task  → runner gets ~14 GB
+  #   GCP small:  2 vCPU /  8 GB VM    → runner gets  5 GB / 1.25 CPU
+  #   GCP regular: 4 vCPU / 16 GB VM   → runner gets 12 GB / 3 CPU
+
+  runner_vcpus     = tonumber(regex("-(\\d+)$", var.runner_vm_config.machine_type)[0])
+  runner_memory_gb = local.runner_vcpus * 4
+
+  # Sidecar limits are fixed (small footprint). The main runner container
+  # gets whatever remains after sidecars and OS overhead.
+  runner_sidecar_memory_mb = 1792 # prometheus 1024 + auth-proxy 512 + node-exporter 256
+  runner_sidecar_cpus      = 1.25 # prometheus 0.5 + auth-proxy 0.5 + node-exporter 0.25
+  runner_os_reserve_mb     = 512
+
+  runner_container_memory_mb = (local.runner_memory_gb * 1024) - local.runner_sidecar_memory_mb - local.runner_os_reserve_mb
+  runner_container_cpus      = local.runner_vcpus - local.runner_sidecar_cpus
+
+  proxy_vcpus     = tonumber(regex("-(\\d+)$", var.proxy_vm_config.machine_type)[0])
+  proxy_memory_gb = local.proxy_vcpus * 4
+
+  proxy_sidecar_memory_mb = 768 # prometheus 512 + node-exporter 256
+  proxy_sidecar_cpus      = 0.5 # prometheus 0.25 + node-exporter 0.25
+  proxy_os_reserve_mb     = 512
+
+  proxy_container_memory_mb = (local.proxy_memory_gb * 1024) - local.proxy_sidecar_memory_mb - local.proxy_os_reserve_mb
+  proxy_container_cpus      = local.proxy_vcpus - local.proxy_sidecar_cpus
+
   # Docker config handling
   docker_config_enabled     = var.custom_images.docker_config_json != ""
   docker_config_bucket_name = local.docker_config_enabled ? google_storage_bucket.runner_assets.name : ""
