@@ -682,6 +682,7 @@ write_files:
         --env https_proxy=${HTTPS_PROXY} \
         --env all_proxy=${ALL_PROXY} \
         --env GITPOD_DEVELOPMENT_VERSION=${DEVELOPMENT_VERSION} \
+        --env GITPOD_TERRAFORM_MODULE_VERSION=${TERRAFORM_MODULE_VERSION} \
         --env no_proxy=${NO_PROXY} \
 %{ if HAS_TRUST_BUNDLE ~}
         --volume /var/lib/gitpod/certs/gitpod-custom-ca.crt:/etc/ssl/certs/gitpod-trust-bundle.crt:ro \

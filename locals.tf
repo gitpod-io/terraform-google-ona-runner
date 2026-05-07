@@ -1,4 +1,7 @@
 locals {
+  # Keep in sync with the version in the latest Git tag / Terraform Registry release.
+  module_version = "2.0.0"
+
   # VPC project ID - defaults to project_id if not specified (for Shared VPC support)
   vpc_project_id = var.vpc_project_id != "" ? var.vpc_project_id : var.project_id
 
