@@ -1,4 +1,6 @@
 locals {
+  module_version = trimspace(file("${path.module}/VERSION"))
+
   # VPC project ID - defaults to project_id if not specified (for Shared VPC support)
   vpc_project_id = var.vpc_project_id != "" ? var.vpc_project_id : var.project_id
 
@@ -16,8 +18,8 @@ locals {
   })
 
   # Default images
-  default_runner_image = "us-docker.pkg.dev/gitpod-next-production/gitpod-next/gitpod-gcp-runner:20260505.604"
-  default_proxy_image  = "us-docker.pkg.dev/gitpod-next-production/gitpod-next/gitpod-proxy:20260505.604"
+  default_runner_image = "us-docker.pkg.dev/gitpod-next-production/gitpod-next/gitpod-gcp-runner:20260507.603"
+  default_proxy_image  = "us-docker.pkg.dev/gitpod-next-production/gitpod-next/gitpod-proxy:20260507.603"
 
   default_prometheus_image    = "us-docker.pkg.dev/gitpod-next-production/gitpod-next/prometheus:v3.11.3"
   default_node_exporter_image = "us-docker.pkg.dev/gitpod-next-production/gitpod-next/node-exporter:v1.11.1"

@@ -166,6 +166,8 @@ data "cloudinit_config" "runner" {
       CUSTOM_RUNNER_REGISTRY   = local.custom_runner_registry
       # Environment VM labels configuration
       ENVIRONMENT_VM_LABELS = join(",", [for k, v in var.labels : "${k}=${v}"])
+      # Module version reported to the management plane
+      TERRAFORM_MODULE_VERSION = local.module_version
     })
   }
 }
