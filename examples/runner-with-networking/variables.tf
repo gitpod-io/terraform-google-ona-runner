@@ -201,9 +201,3 @@ variable "enable_agents" {
   default     = true
 }
 
-variable "honeycomb_api_key" {
-  description = "Honeycomb API key for development tracing. Enables tracing on the runner and environments when set."
-  type        = string
-  default     = ""
-  sensitive   = true
-}
