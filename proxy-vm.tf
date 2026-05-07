@@ -87,7 +87,9 @@ resource "google_compute_instance_template" "proxy" {
   }
 
   shielded_instance_config {
-    enable_secure_boot = true
+    enable_secure_boot          = true
+    enable_vtpm                 = true
+    enable_integrity_monitoring = true
   }
 
   # Container-Optimized OS metadata for running the proxy container
@@ -96,6 +98,7 @@ resource "google_compute_instance_template" "proxy" {
     google-monitoring-enabled    = "true"
     google-logging-use-fluentbit = "true"
     serial-port-logging-enable   = "true"
+    block-project-ssh-keys       = "TRUE"
 
     # Cloud-init configuration for proxy setup
     user-data = data.cloudinit_config.proxy.rendered

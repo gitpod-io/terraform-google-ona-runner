@@ -200,7 +200,9 @@ resource "google_compute_instance_template" "runner" {
   }
 
   shielded_instance_config {
-    enable_secure_boot = true
+    enable_secure_boot          = true
+    enable_vtpm                 = true
+    enable_integrity_monitoring = true
   }
 
 
@@ -229,6 +231,7 @@ resource "google_compute_instance_template" "runner" {
     google-monitoring-enabled    = "true"
     google-logging-use-fluentbit = "true"
     serial-port-logging-enable   = "true"
+    block-project-ssh-keys       = "TRUE"
 
     # Cloud-init configuration for Prometheus setup
     user-data = data.cloudinit_config.runner.rendered
