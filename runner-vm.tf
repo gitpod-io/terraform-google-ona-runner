@@ -36,9 +36,9 @@ resource "tls_private_key" "auth_proxy" {
   algorithm = "RSA"
   rsa_bits  = 2048
 
-  # Force recreation when rotation time changes
   lifecycle {
     create_before_destroy = true
+    replace_triggered_by  = [time_rotating.auth_proxy_cert_rotation]
   }
 }
 
@@ -52,9 +52,9 @@ resource "tls_self_signed_cert" "auth_proxy" {
 
   validity_period_hours = 8760 # 1 year
 
-  # Force recreation when rotation time changes
   lifecycle {
     create_before_destroy = true
+    replace_triggered_by  = [time_rotating.auth_proxy_cert_rotation]
   }
 
   allowed_uses = [
