@@ -99,6 +99,10 @@ resource "google_compute_firewall" "deny_environments_to_services" {
   target_tags = ["gitpod-runner", "gitpod-proxy"]
   priority    = 1000 # Higher priority than allow rules
 
+  log_config {
+    metadata = "INCLUDE_ALL_METADATA"
+  }
+
   # depends on proxy vm
   depends_on = [google_compute_backend_service.proxy]
 }
@@ -118,6 +122,10 @@ resource "google_compute_firewall" "allow_iap_to_environments" {
 
   source_ranges = ["35.235.240.0/20"]
   target_tags   = ["gitpod-type-environment"]
+
+  log_config {
+    metadata = "INCLUDE_ALL_METADATA"
+  }
 
   # depends on proxy vm
   depends_on = [google_compute_backend_service.proxy]
@@ -163,6 +171,10 @@ resource "google_compute_firewall" "deny_email_from_environments" {
 
   destination_ranges = ["0.0.0.0/0"]
   target_tags        = ["gitpod-type-environment"]
+
+  log_config {
+    metadata = "INCLUDE_ALL_METADATA"
+  }
 
   # depends on proxy vm
   depends_on = [google_compute_backend_service.proxy]
@@ -393,6 +405,10 @@ resource "google_compute_firewall" "deny_proxy_to_environments_ssh_egress" {
 
   destination_ranges = [data.google_compute_subnetwork.runner_subnet.ip_cidr_range]
   target_tags        = ["gitpod-proxy"]
+
+  log_config {
+    metadata = "INCLUDE_ALL_METADATA"
+  }
 }
 
 # Allow proxy egress to environments on application ports only
@@ -474,4 +490,8 @@ resource "google_compute_firewall" "allow_environments_internet_egress" {
 
   destination_ranges = ["0.0.0.0/0"]
   target_tags        = ["gitpod-type-environment"]
+
+  log_config {
+    metadata = "INCLUDE_ALL_METADATA"
+  }
 }
