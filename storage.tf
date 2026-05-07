@@ -264,7 +264,9 @@ locals {
   has_certificates = var.ca_certificate != null || (var.certificate_secret_id != "" && var.certificate_secret_read)
 }
 
-# Upload combined trust bundle certificate to GCS bucket
+# Upload combined trust bundle certificate to GCS bucket.
+# create_before_destroy ensures the new object is written before the old
+# one is removed, preventing a gap if terraform apply is interrupted.
 resource "google_storage_bucket_object" "trust_bundle" {
   count = local.has_certificates ? 1 : 0
 
@@ -283,6 +285,10 @@ resource "google_storage_bucket_object" "trust_bundle" {
     source          = "combined-trust-bundle"
     has_ca_cert     = var.ca_certificate != null ? "true" : "false"
     has_secret_cert = var.certificate_secret_id != "" && var.certificate_secret_read ? "true" : "false"
+  }
+
+  lifecycle {
+    create_before_destroy = true
   }
 }
 
