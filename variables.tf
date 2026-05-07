@@ -337,6 +337,18 @@ variable "enable_agents" {
   default     = true
 }
 
+variable "force_destroy_buckets" {
+  description = "Allow terraform destroy to delete GCS buckets even when they contain objects. Set to true only for development/testing."
+  type        = bool
+  default     = false
+}
+
+variable "redis_deletion_protection" {
+  description = "Enable deletion protection on the Redis cluster. Disable only for development/testing."
+  type        = bool
+  default     = true
+}
+
 variable "honeycomb_api_key" {
   description = "Honeycomb API key for development tracing. Enables tracing on the runner and environments when set."
   type        = string

@@ -146,8 +146,7 @@ resource "google_redis_cluster" "cache" {
   authorization_mode      = "AUTH_MODE_IAM_AUTH"
   transit_encryption_mode = "TRANSIT_ENCRYPTION_MODE_SERVER_AUTHENTICATION"
 
-  # Allow destruction for development/testing
-  deletion_protection_enabled = false
+  deletion_protection_enabled = var.redis_deletion_protection
 
   # Maintenance window - Sunday 3 AM UTC
   maintenance_policy {
@@ -185,6 +184,22 @@ resource "google_storage_bucket" "runner_assets" {
   # Security settings
   uniform_bucket_level_access = true
   public_access_prevention    = "enforced"
+  force_destroy               = var.force_destroy_buckets
+
+  versioning {
+    enabled = true
+  }
+
+  # Clean up non-current versions after 90 days
+  lifecycle_rule {
+    condition {
+      num_newer_versions = 3
+      with_state         = "ARCHIVED"
+    }
+    action {
+      type = "Delete"
+    }
+  }
 
   # CMEK encryption (optional)
   dynamic "encryption" {
@@ -211,11 +226,27 @@ resource "google_storage_bucket" "agent_storage" {
   # Security settings
   uniform_bucket_level_access = true
   public_access_prevention    = "enforced"
+  force_destroy               = var.force_destroy_buckets
+
+  versioning {
+    enabled = true
+  }
 
   # Lifecycle management
   lifecycle_rule {
     condition {
       age = 365 # Delete agent artifacts after 1 year
+    }
+    action {
+      type = "Delete"
+    }
+  }
+
+  # Clean up non-current versions after 90 days
+  lifecycle_rule {
+    condition {
+      days_since_noncurrent_time = 90
+      with_state                 = "NONCURRENT"
     }
     action {
       type = "Delete"

@@ -10,7 +10,7 @@ resource "google_storage_bucket" "build_cache" {
   public_access_prevention    = "enforced"
   default_event_based_hold    = false
   requester_pays              = false
-  force_destroy               = true
+  force_destroy               = var.force_destroy_buckets
 
   # Lifecycle management - automatic cleanup of old cache data (30 days for production)
   lifecycle_rule {
