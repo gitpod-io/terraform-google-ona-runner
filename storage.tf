@@ -246,7 +246,6 @@ resource "google_storage_bucket" "agent_storage" {
   lifecycle_rule {
     condition {
       days_since_noncurrent_time = 90
-      with_state                 = "NONCURRENT"
     }
     action {
       type = "Delete"
