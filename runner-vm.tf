@@ -167,6 +167,9 @@ data "cloudinit_config" "runner" {
       ENVIRONMENT_VM_LABELS = join(",", [for k, v in var.labels : "${k}=${v}"])
       # Module version reported to the management plane
       TERRAFORM_MODULE_VERSION = local.module_version
+      # Container resource limits (computed from machine type)
+      RUNNER_CONTAINER_MEMORY = "${local.runner_container_memory_mb}m"
+      RUNNER_CONTAINER_CPUS   = tostring(local.runner_container_cpus)
     })
   }
 }
