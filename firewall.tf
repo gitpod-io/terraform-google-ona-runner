@@ -195,20 +195,39 @@ resource "google_compute_firewall" "runner_health_check" {
   target_tags = ["allow-health-check", "lb-health-check"]
 }
 
-# Firewall rule to allow internal traffic
+# Firewall rule to allow service traffic to runner instances.
+# SSH (22) is intentionally excluded — runner-to-environment SSH uses
+# tag-based rules, and operator SSH should go through IAP (35.235.240.0/20).
 resource "google_compute_firewall" "runner_internal_traffic" {
   name    = "${var.runner_name}-internal-traffic"
   network = var.vpc_name
   project = local.vpc_project_id
 
-  description = "Allow internal traffic to runner instances"
+  description = "Allow service traffic to runner instances (SSH excluded — use IAP)"
 
   allow {
     protocol = "tcp"
-    ports    = ["22", "8080", "9091", "4430"]
+    ports    = ["8080", "9091", "4430"]
   }
 
   source_ranges = ["0.0.0.0/0"]
+  target_tags   = ["gitpod-runner"]
+}
+
+# Allow IAP TCP forwarding to runner instances for operator SSH access
+resource "google_compute_firewall" "allow_iap_to_runner" {
+  name    = "${var.runner_name}-allow-iap-to-runner"
+  network = var.vpc_name
+  project = local.vpc_project_id
+
+  description = "Allow IAP TCP forwarding to runner instances for SSH"
+
+  allow {
+    protocol = "tcp"
+    ports    = ["22"]
+  }
+
+  source_ranges = ["35.235.240.0/20"]
   target_tags   = ["gitpod-runner"]
 }
 
@@ -290,20 +309,38 @@ resource "google_compute_firewall" "proxy_health_check" {
   target_tags   = ["gitpod-proxy"]
 }
 
-# Firewall rule to allow HTTP/HTTPS traffic
+# Firewall rule to allow HTTP/HTTPS traffic to proxy instances.
+# SSH (22) is intentionally excluded — operator SSH should go through IAP.
 resource "google_compute_firewall" "proxy_web_traffic" {
   name    = "${var.runner_name}-proxy-web-traffic"
   network = var.vpc_name
   project = local.vpc_project_id
 
-  description = "Allow HTTP/HTTPS traffic to proxy instances"
+  description = "Allow HTTP/HTTPS traffic to proxy instances (SSH excluded — use IAP)"
 
   allow {
     protocol = "tcp"
-    ports    = ["22", "8080", "8443"]
+    ports    = ["8080", "8443"]
   }
 
   source_ranges = ["0.0.0.0/0"]
+  target_tags   = ["gitpod-proxy"]
+}
+
+# Allow IAP TCP forwarding to proxy instances for operator SSH access
+resource "google_compute_firewall" "allow_iap_to_proxy" {
+  name    = "${var.runner_name}-allow-iap-to-proxy"
+  network = var.vpc_name
+  project = local.vpc_project_id
+
+  description = "Allow IAP TCP forwarding to proxy instances for SSH"
+
+  allow {
+    protocol = "tcp"
+    ports    = ["22"]
+  }
+
+  source_ranges = ["35.235.240.0/20"]
   target_tags   = ["gitpod-proxy"]
 }
 
