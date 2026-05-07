@@ -37,6 +37,9 @@ data "cloudinit_config" "proxy" {
       # Insecure registries configuration
       INSECURE_REGISTRIES_ENABLED = local.insecure_registries_enabled
       INSECURE_REGISTRIES_JSON    = local.insecure_registries_json
+      # Container resource limits (computed from machine type)
+      PROXY_CONTAINER_MEMORY = "${local.proxy_container_memory_mb}m"
+      PROXY_CONTAINER_CPUS   = tostring(local.proxy_container_cpus)
     })
   }
 }

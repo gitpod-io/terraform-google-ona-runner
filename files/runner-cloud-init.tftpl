@@ -296,6 +296,8 @@ write_files:
       ExecStart=/usr/bin/docker%{ if DOCKER_CONFIG_ENABLED } --config /var/lib/gitpod/docker-config%{ endif } run --rm --name prometheus \
         --network host \
         --hostname %H \
+        --memory=1g \
+        --cpus=0.5 \
         --volume /var/lib/prometheus:/etc/prometheus:ro \
         --volume /var/lib/prometheus/data:/prometheus \
         --volume /var/lib/gitpod/certs/gitpod-custom-ca.crt:/etc/ssl/certs/gitpod-trust-bundle.crt:ro \
@@ -344,6 +346,8 @@ write_files:
       ExecStart=/usr/bin/docker%{ if DOCKER_CONFIG_ENABLED } --config /var/lib/gitpod/docker-config%{ endif } run --rm --name node-exporter \
         --network host \
         --pid host \
+        --memory=256m \
+        --cpus=0.25 \
         --volume /:/host:ro,rslave \
         --volume /var/lib/gitpod/certs/gitpod-custom-ca.crt:/etc/ssl/certs/gitpod-trust-bundle.crt:ro \
         --env http_proxy=${HTTP_PROXY} \
@@ -656,6 +660,8 @@ write_files:
       ExecStart=/usr/bin/docker%{ if DOCKER_CONFIG_ENABLED } --config /var/lib/gitpod/docker-config%{ endif } run --rm --name gitpod-auth-proxy \
         --network host \
         --hostname %H \
+        --memory=512m \
+        --cpus=0.5 \
         --volume /var/lib/gitpod/certs:/var/lib/gitpod/certs:ro \
 %{ if HAS_TRUST_BUNDLE ~}
         --volume /var/lib/gitpod/certs/gitpod-custom-ca.crt:/etc/ssl/certs/gitpod-trust-bundle.crt:ro \
@@ -704,6 +710,8 @@ write_files:
       ExecStart=/usr/bin/docker%{ if DOCKER_CONFIG_ENABLED } --config /var/lib/gitpod/docker-config%{ endif } run --rm --name gitpod-runner \
         --network host \
         --hostname %H \
+        --memory=${RUNNER_CONTAINER_MEMORY} \
+        --cpus=${RUNNER_CONTAINER_CPUS} \
         --volume /var/lib/prometheus:/var/lib/prometheus \
         --volume /tmp:/tmp \
         --env http_proxy=${HTTP_PROXY} \
