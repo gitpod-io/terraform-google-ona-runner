@@ -359,17 +359,11 @@ resource "google_compute_health_check" "runner" {
 
 
 # Resource tagging for lifecycle management
-# Use google_compute_project_metadata_item (non-authoritative) instead of
-# google_compute_project_metadata to avoid clobbering other project metadata
-# (OS Login config, SSH keys, etc.) managed outside this module.
-resource "google_compute_project_metadata_item" "enable_oslogin" {
+resource "google_compute_project_metadata" "runner_metadata" {
   project = var.project_id
-  key     = "enable-oslogin"
-  value   = "TRUE"
-}
 
-resource "google_compute_project_metadata_item" "runner_id" {
-  project = var.project_id
-  key     = "gitpod-runner-id"
-  value   = var.runner_id
+  metadata = {
+    "enable-oslogin"   = "TRUE"
+    "gitpod-runner-id" = var.runner_id
+  }
 }
