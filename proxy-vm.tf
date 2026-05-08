@@ -10,17 +10,18 @@ data "cloudinit_config" "proxy" {
   part {
     content_type = "text/cloud-config"
     content = templatefile("${path.module}/files/proxy-cloud-init.tftpl", {
-      RUNNER_ID             = var.runner_id
-      PROJECT_ID            = var.project_id
-      REGION                = var.region
-      PROXY_DOMAIN          = var.runner_domain
-      PROXY_IMAGE_URL       = local.proxy_image
-      PROMETHEUS_IMAGE      = local.prometheus_image
-      LOADBALANCER_TYPE     = var.loadbalancer_type
-      CERTIFICATE_ID        = var.certificate_id
-      CERTIFICATE_SECRET_ID = var.certificate_secret_id
-      METRICS_SECRET_ID     = "${var.runner_id}-metrics"
-      API_ENDPOINT          = var.api_endpoint
+      RUNNER_ID                 = var.runner_id
+      PROJECT_ID                = var.project_id
+      REGION                    = var.region
+      PROXY_DOMAIN              = var.runner_domain
+      PROXY_IMAGE_URL           = local.proxy_image
+      PROMETHEUS_IMAGE          = local.prometheus_image
+      LOADBALANCER_TYPE         = var.loadbalancer_type
+      CERTIFICATE_ID            = var.certificate_id
+      CERTIFICATE_SECRET_ID     = var.certificate_secret_id
+      METRICS_SECRET_ID         = "${var.runner_id}-metrics"
+      API_ENDPOINT              = var.api_endpoint
+      RUNNER_ASSETS_BUCKET_NAME = google_storage_bucket.runner_assets.name
       # Proxy configuration
       HTTP_PROXY  = local.http_proxy
       HTTPS_PROXY = local.https_proxy

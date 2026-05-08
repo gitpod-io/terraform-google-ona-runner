@@ -568,9 +568,10 @@ resource "google_secret_manager_secret_iam_member" "proxy_vm_certificate_secret_
 }
 
 # GCS access for runner assets bucket (proxy VMs)
+# objectAdmin is required for the metrics audit receiver to write audit payloads.
 resource "google_storage_bucket_iam_member" "proxy_vm_runner_assets_access" {
   bucket = google_storage_bucket.runner_assets.name
-  role   = "roles/storage.objectViewer"
+  role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${local.proxy_vm_sa_email}"
 }
 
