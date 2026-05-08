@@ -61,13 +61,13 @@ jobs:
         id: changelog
         run: |
           if [ -n "${{ steps.prev_tag.outputs.tag }}" ]; then
-            # Get commits between tags, excluding automated image update commits
-            CHANGELOG=$(git log --pretty=format:"- %s (%h)" \
+            # Get non-merge commits between tags, excluding automated image update commits
+            CHANGELOG=$(git log --no-merges --pretty=format:"- %s (%h)" \
               "${{ steps.prev_tag.outputs.tag }}..${RELEASE_TAG}" \
               --grep="Update GCP runner, proxy, prometheus, and node-exporter images" --invert-grep)
           else
-            # First release - get all commits excluding automated ones
-            CHANGELOG=$(git log --pretty=format:"- %s (%h)" \
+            # First release - get all non-merge commits excluding automated ones
+            CHANGELOG=$(git log --no-merges --pretty=format:"- %s (%h)" \
               --grep="Update GCP runner, proxy, prometheus, and node-exporter images" --invert-grep)
           fi
 
@@ -91,8 +91,8 @@ jobs:
             if [ -n "$CHANGED_FILES" ]; then
               echo "has_changes=true" >> $GITHUB_OUTPUT
 
-              # Get commits that touched IAM files
-              IAM_COMMITS=$(git log --pretty=format:"- %s (%h)" \
+              # Get non-merge commits that touched IAM files
+              IAM_COMMITS=$(git log --no-merges --pretty=format:"- %s (%h)" \
                 "${{ steps.prev_tag.outputs.tag }}..${RELEASE_TAG}" \
                 --grep="Update GCP runner, proxy, prometheus, and node-exporter images" --invert-grep \
                 -- $IAM_FILES)
@@ -124,7 +124,12 @@ jobs:
       - name: Build release body
         id: body
         run: |
-          cat << 'EOF' > release_body.md
+          # Derive docs anchor from manifest version: 20260508.526 -> 20260508-526
+          DOCS_ANCHOR=$(echo "${{ steps.manifest.outputs.version }}" | tr '.' '-')
+
+          cat << EOF > release_body.md
+          For application changes in the GCP runner itself, see the [release notes](https://ona.com/docs/release-notes/gcp-runner#${DOCS_ANCHOR}).
+
           ## Container Images
 
           | Component | Image |
