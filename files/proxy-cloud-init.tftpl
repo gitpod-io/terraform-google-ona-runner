@@ -432,10 +432,14 @@ write_files:
       REMOTE_URL=$(echo "$SECRET_DATA" | jq -r '.url // ""')
       REMOTE_USER=$(echo "$SECRET_DATA" | jq -r '.user // ""')
       REMOTE_PASSWORD=$(echo "$SECRET_DATA" | jq -r '.password // ""')
+      MANAGED_ENDPOINT_URL=$(echo "$SECRET_DATA" | jq -r '.managedEndpointUrl // ""')
+      MANAGED_BEARER_TOKEN=$(echo "$SECRET_DATA" | jq -r '.managedBearerToken // ""')
       RUNNER_ID=$(echo "$SECRET_DATA" | jq -r '.runnerId // ""')
       ORGANIZATION_ID=$(echo "$SECRET_DATA" | jq -r '.organizationId // ""')
+      # Read allowlist as a bash array of prefixes
+      mapfile -t ALLOWLIST_PREFIXES < <(echo "$SECRET_DATA" | jq -r '.allowlistPrefixes // [] | .[]')
 
-      log "Metrics enabled: $ENABLE_METRICS, URL: $REMOTE_URL"
+      log "Metrics enabled: $ENABLE_METRICS, URL: $REMOTE_URL, managed endpoint: $MANAGED_ENDPOINT_URL, runner_id: $RUNNER_ID, organization_id: $ORGANIZATION_ID, allowlist prefixes: $${#ALLOWLIST_PREFIXES[@]}"
 
       # Generate final configuration using template substitution
       sed -e "s/{{INSTANCE_NAME}}/$INSTANCE_NAME/g" \
@@ -450,6 +454,7 @@ write_files:
       fi
 
       # Add remote write configuration if metrics are enabled
+      HAS_REMOTE_WRITE=false
       if [ "$ENABLE_METRICS" = "true" ] && [ -n "$REMOTE_URL" ]; then
           log "Adding remote write configuration"
           
@@ -459,6 +464,7 @@ write_files:
           # Add remote write configuration using echo
           echo "" >> /tmp/prometheus.yml.new
           echo "remote_write:" >> /tmp/prometheus.yml.new
+          HAS_REMOTE_WRITE=true
           echo "  - url: $REMOTE_URL" >> /tmp/prometheus.yml.new
           
           # Add basic auth if credentials are provided
@@ -470,6 +476,49 @@ write_files:
       else
           # Remove the placeholder line when metrics are disabled
           sed -i '/{{REMOTE_WRITE_CONFIG}}/d' /tmp/prometheus.yml.new
+      fi
+
+      # Build allowlist regex once — reused by both managed and local targets.
+      ALLOWLIST_REGEX=""
+      if [ $${#ALLOWLIST_PREFIXES[@]} -gt 0 ]; then
+          ALLOWLIST_REGEX="("
+          for i in "$${!ALLOWLIST_PREFIXES[@]}"; do
+              if [ "$i" -gt 0 ]; then ALLOWLIST_REGEX+="|"; fi
+              ALLOWLIST_REGEX+="$${ALLOWLIST_PREFIXES[$i]}.*"
+          done
+          ALLOWLIST_REGEX+=")"
+      fi
+
+      # Helper: append write_relabel_configs for the allowlist.
+      append_allowlist_relabel() {
+          if [ -n "$ALLOWLIST_REGEX" ]; then
+              echo "    write_relabel_configs:" >> /tmp/prometheus.yml.new
+              echo "      - source_labels: [__name__]" >> /tmp/prometheus.yml.new
+              echo "        regex: '$ALLOWLIST_REGEX'" >> /tmp/prometheus.yml.new
+              echo "        action: keep" >> /tmp/prometheus.yml.new
+          fi
+      }
+
+      # Add managed endpoint direct push (preferred over local receiver).
+      # Uses a scoped JWT to push metrics directly to the management plane.
+      if [ -n "$MANAGED_ENDPOINT_URL" ] && [ -n "$MANAGED_BEARER_TOKEN" ]; then
+          log "Adding managed endpoint remote write target: $MANAGED_ENDPOINT_URL"
+          if [ "$HAS_REMOTE_WRITE" = "false" ]; then
+              echo "" >> /tmp/prometheus.yml.new
+              echo "remote_write:" >> /tmp/prometheus.yml.new
+              HAS_REMOTE_WRITE=true
+          fi
+          echo "  - url: $MANAGED_ENDPOINT_URL" >> /tmp/prometheus.yml.new
+          echo "    authorization:" >> /tmp/prometheus.yml.new
+          echo "      type: Bearer" >> /tmp/prometheus.yml.new
+          echo "      credentials: $MANAGED_BEARER_TOKEN" >> /tmp/prometheus.yml.new
+          append_allowlist_relabel
+
+          # Audit: send the same filtered payload to the local audit receiver
+          # which persists each write to GCS for customer audit trails.
+          log "Adding metrics audit receiver remote write target"
+          echo "  - url: http://127.0.0.1:9095/write" >> /tmp/prometheus.yml.new
+          append_allowlist_relabel
       fi
 
       # Check if configuration changed
@@ -529,6 +578,92 @@ write_files:
 
       [Install]
       WantedBy=timers.target
+
+  # Metrics audit receiver — accepts Prometheus remote_write POSTs and
+  # writes each payload to GCS so customers can audit exactly what data
+  # leaves their network. Listens on 127.0.0.1:9095.
+  - path: /var/lib/gitpod/metrics-audit-receiver.py
+    permissions: '0755'
+    content: |
+      #!/usr/bin/env python3
+      """Receives Prometheus remote_write payloads and writes them to GCS."""
+      import os
+      import subprocess
+      import sys
+      import time
+      from http.server import HTTPServer, BaseHTTPRequestHandler
+
+      LISTEN_ADDR = "127.0.0.1"
+      LISTEN_PORT = 9095
+      BUCKET = os.environ.get("RUNNER_ASSETS_BUCKET_NAME", "")
+      RUNNER_ID = os.environ.get("RUNNER_ID", "")
+
+      class AuditHandler(BaseHTTPRequestHandler):
+          def do_POST(self):
+              length = int(self.headers.get("Content-Length", 0))
+              if length == 0:
+                  self.send_response(204)
+                  self.end_headers()
+                  return
+
+              body = self.rfile.read(length)
+              now = time.gmtime()
+              key = "metrics/runner/{rid}/{y}/{m:02d}/{d:02d}/{H:02d}{M:02d}{S:02d}.pb.snappy".format(
+                  rid=RUNNER_ID,
+                  y=now.tm_year, m=now.tm_mon, d=now.tm_mday,
+                  H=now.tm_hour, M=now.tm_min, S=now.tm_sec,
+              )
+              dst = "gs://{}/{}".format(BUCKET, key)
+
+              try:
+                  proc = subprocess.run(
+                      ["gcloud", "storage", "cp", "-", dst],
+                      input=body, capture_output=True, timeout=30,
+                  )
+                  if proc.returncode != 0:
+                      sys.stderr.write("gcloud cp failed: {}\n".format(proc.stderr.decode()))
+                      self.send_response(502)
+                      self.end_headers()
+                      return
+              except Exception as e:
+                  sys.stderr.write("audit write error: {}\n".format(e))
+                  self.send_response(502)
+                  self.end_headers()
+                  return
+
+              self.send_response(204)
+              self.end_headers()
+
+          def log_message(self, fmt, *args):
+              pass  # suppress per-request access logs
+
+      if not BUCKET or not RUNNER_ID:
+          sys.stderr.write("RUNNER_ASSETS_BUCKET_NAME or RUNNER_ID not set, exiting\n")
+          sys.exit(1)
+
+      server = HTTPServer((LISTEN_ADDR, LISTEN_PORT), AuditHandler)
+      sys.stderr.write("metrics-audit-receiver listening on {}:{}\n".format(LISTEN_ADDR, LISTEN_PORT))
+      server.serve_forever()
+
+  # Systemd service for the metrics audit receiver
+  - path: /var/lib/systemd/system/metrics-audit-receiver.service
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=Metrics Audit Receiver
+      After=network.target
+      Before=prometheus.service
+
+      [Service]
+      Type=simple
+      Restart=always
+      RestartSec=5s
+      Environment=RUNNER_ASSETS_BUCKET_NAME=${RUNNER_ASSETS_BUCKET_NAME}
+      Environment=RUNNER_ID=${RUNNER_ID}
+      ExecStart=/var/lib/gitpod/metrics-audit-receiver.py
+
+      [Install]
+      WantedBy=multi-user.target
 
 %{ if CERTIFICATE_SECRET_ID != "" ~}
   # Certificate refresh script - polls Secret Manager and updates cert files on disk
@@ -912,6 +1047,7 @@ write_files:
       systemctl enable prometheus
       systemctl enable node-exporter
       systemctl enable prometheus-config-updater.timer
+      systemctl enable metrics-audit-receiver.service
 %{ if CERTIFICATE_SECRET_ID != "" ~}
       systemctl enable cert-refresh.timer
 %{ endif ~}
