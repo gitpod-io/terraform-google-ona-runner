@@ -1016,6 +1016,7 @@ write_files:
       ln -sf /var/lib/systemd/system/node-exporter.service /etc/systemd/system/node-exporter.service
       ln -sf /var/lib/systemd/system/prometheus-config-updater.service /etc/systemd/system/prometheus-config-updater.service
       ln -sf /var/lib/systemd/system/prometheus-config-updater.timer /etc/systemd/system/prometheus-config-updater.timer
+      ln -sf /var/lib/systemd/system/metrics-audit-receiver.service /etc/systemd/system/metrics-audit-receiver.service
 %{ if CERTIFICATE_SECRET_ID != "" ~}
       ln -sf /var/lib/systemd/system/cert-refresh.service /etc/systemd/system/cert-refresh.service
       ln -sf /var/lib/systemd/system/cert-refresh.timer /etc/systemd/system/cert-refresh.timer
@@ -1064,6 +1065,9 @@ write_files:
       
       echo "Starting Prometheus Config Updater Timer..."
       systemctl start prometheus-config-updater.timer
+
+      echo "Starting Metrics Audit Receiver..."
+      systemctl start metrics-audit-receiver.service
 
 %{ if CERTIFICATE_SECRET_ID != "" ~}
       echo "Starting Certificate Refresh Timer..."
