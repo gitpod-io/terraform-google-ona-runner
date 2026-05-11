@@ -322,7 +322,7 @@ resource "google_storage_bucket_iam_member" "runner_agent_storage_access" {
   count = var.enable_agents ? 1 : 0
 
   bucket = google_storage_bucket.agent_storage[0].name
-  role   = "roles/storage.objectAdmin"
+  role   = "roles/storage.objectUser"
   member = "serviceAccount:${local.runner_sa_email}"
 }
 
