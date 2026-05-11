@@ -105,7 +105,7 @@ resource "google_compute_instance_template" "proxy" {
     block-project-ssh-keys       = "TRUE"
 
     # Cloud-init configuration for proxy setup
-    user-data = data.cloudinit_config.proxy.rendered
+    user-data = sensitive(data.cloudinit_config.proxy.rendered)
 
     "cos-metrics-enabled" = "true"
   }
