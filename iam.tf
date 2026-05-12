@@ -318,6 +318,8 @@ resource "google_storage_bucket_iam_member" "runner_runner_assets_access" {
 }
 
 # GCS access for agent storage bucket (runner VMs)
+# objectAdmin is required because the runner deletes conversation, blob, and
+# result objects during agent execution cleanup (objectUser lacks delete).
 resource "google_storage_bucket_iam_member" "runner_agent_storage_access" {
   count = var.enable_agents ? 1 : 0
 
