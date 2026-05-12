@@ -52,7 +52,7 @@ resource "google_compute_instance_template" "proxy" {
   machine_type = var.proxy_vm_config.machine_type
   region       = var.region
 
-  tags = ["gitpod-proxy", "gitpod-type-proxy"]
+  tags = ["gitpod-proxy", "gitpod-type-proxy", "allow-health-check"]
 
   labels = local.proxy_labels
 
