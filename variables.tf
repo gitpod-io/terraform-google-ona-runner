@@ -337,4 +337,10 @@ variable "enable_agents" {
   default     = true
 }
 
+variable "use_authoritative_project_metadata" {
+  description = "When true (default), uses authoritative google_compute_project_metadata which manages all project metadata. Set to false to use per-key metadata items that leave other project metadata untouched."
+  type        = bool
+  default     = true
+}
+
 
