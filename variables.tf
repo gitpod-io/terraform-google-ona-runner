@@ -337,4 +337,10 @@ variable "enable_agents" {
   default     = true
 }
 
+variable "use_authoritative_project_metadata" {
+  description = "Use authoritative google_compute_project_metadata (true) or per-key google_compute_project_metadata_item (false). The authoritative resource manages ALL project metadata — keys not listed in this module will be removed. Set to false if other systems or Terraform modules manage project metadata in the same project. Switching from true to false on an existing deployment requires state migration (see README)."
+  type        = bool
+  default     = true
+}
+
 
