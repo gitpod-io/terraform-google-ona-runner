@@ -358,12 +358,29 @@ resource "google_compute_health_check" "runner" {
 }
 
 
-# Resource tagging for lifecycle management
+# Project metadata: authoritative (default) or per-key items.
+# Authoritative manages ALL project metadata — keys not in this block are removed.
+# Per-key items only touch the keys this module needs, leaving other metadata intact.
 resource "google_compute_project_metadata" "runner_metadata" {
+  count   = var.use_authoritative_project_metadata ? 1 : 0
   project = var.project_id
 
   metadata = {
     "enable-oslogin"   = "TRUE"
     "gitpod-runner-id" = var.runner_id
   }
+}
+
+resource "google_compute_project_metadata_item" "enable_oslogin" {
+  count   = var.use_authoritative_project_metadata ? 0 : 1
+  project = var.project_id
+  key     = "enable-oslogin"
+  value   = "TRUE"
+}
+
+resource "google_compute_project_metadata_item" "runner_id" {
+  count   = var.use_authoritative_project_metadata ? 0 : 1
+  project = var.project_id
+  key     = "gitpod-runner-id"
+  value   = var.runner_id
 }
