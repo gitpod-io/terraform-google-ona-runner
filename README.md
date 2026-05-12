@@ -26,6 +26,47 @@ for setup instructions, configuration options, and troubleshooting.
 The [`runner-with-networking`](./examples/runner-with-networking/) example
 provides a full infrastructure setup including VPC, DNS, and certificates.
 
+## Project Metadata Mode
+
+By default this module uses `google_compute_project_metadata` (authoritative),
+which manages **all** project-level metadata. Any metadata keys not declared in
+this module will be removed on `terraform apply`.
+
+If other systems or Terraform modules manage project metadata in the same GCP
+project, set `use_authoritative_project_metadata = false` to switch to per-key
+`google_compute_project_metadata_item` resources. This only manages the keys
+the module needs (`enable-oslogin`, `gitpod-runner-id`) and leaves everything
+else untouched.
+
+```hcl
+module "runner" {
+  source = "gitpod-io/ona-runner/google"
+  # ...
+  use_authoritative_project_metadata = false
+}
+```
+
+### Migrating an existing deployment to per-key metadata
+
+Switching an existing deployment from authoritative to per-key requires a state
+migration. Without it, Terraform will try to destroy the old resource and create
+the new ones, which can fail or cause a brief metadata gap.
+
+```bash
+# 1. Remove the old authoritative resource from state
+terraform state rm 'module.runner.google_compute_project_metadata.runner_metadata'
+
+# 2. Import the individual keys into the new resources
+terraform import 'module.runner.google_compute_project_metadata_item.enable_oslogin[0]' 'projects/<PROJECT_ID>/enable-oslogin'
+terraform import 'module.runner.google_compute_project_metadata_item.runner_id[0]' 'projects/<PROJECT_ID>/gitpod-runner-id'
+
+# 3. Apply — should show no changes
+terraform apply
+```
+
+Replace `<PROJECT_ID>` with your GCP project ID and adjust the module path if
+your module block uses a different name.
+
 ## Releases
 
 New stable releases are published roughly once a week. To get notified when a
