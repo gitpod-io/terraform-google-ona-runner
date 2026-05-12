@@ -236,7 +236,7 @@ resource "google_compute_instance_template" "runner" {
     block-project-ssh-keys       = "TRUE"
 
     # Cloud-init configuration for Prometheus setup
-    user-data = data.cloudinit_config.runner.rendered
+    user-data = sensitive(data.cloudinit_config.runner.rendered)
 
     "cos-metrics-enabled" = "true"
   }
