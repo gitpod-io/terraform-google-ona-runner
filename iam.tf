@@ -212,8 +212,11 @@ resource "google_project_iam_custom_role" "runner" {
     # google_service_account_iam_member resources below — only on the
     # runner, environment_vm, and proxy_vm SAs the runner needs to attach
     # to instances and instance templates.
-    "iam.serviceAccounts.getIamPolicy",
-    "iam.serviceAccounts.setIamPolicy",
+    #
+    # getIamPolicy/setIamPolicy on service accounts are granted via the
+    # runner_sa_iam_manager custom role, bound per-SA on the same three
+    # SAs — not at project level — so the runner cannot modify IAM on
+    # unrelated service accounts in the project.
 
     # Instance template permissions for runner control plane
     "compute.instanceTemplates.create",
@@ -723,6 +726,69 @@ resource "google_service_account_iam_member" "runner_actas_proxy_vm" {
 
   service_account_id = local.proxy_vm_sa_name
   role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${local.runner_sa_email}"
+
+  depends_on = [
+    google_service_account.runner,
+    google_service_account.proxy_vm,
+  ]
+}
+
+# ================================
+# RUNNER SA IAM MANAGER (PER-SA)
+# ================================
+# Grants the runner SA getIamPolicy/setIamPolicy on the same three SAs it
+# manages (runner, environment_vm, proxy_vm), via a small custom role
+# bound at the service-account level. This replaces holding
+# iam.serviceAccounts.{get,set}IamPolicy in the runner's project-level
+# custom role, which would otherwise let the runner manage IAM on every
+# service account in the project.
+#
+# When pre_created_service_accounts is set the operator is responsible
+# for granting equivalent IAM-management permissions on the relevant SAs
+# out of band; the module does not manage IAM on SAs it did not create.
+resource "google_project_iam_custom_role" "runner_sa_iam_manager" {
+  count = var.pre_created_service_accounts.runner == "" ? 1 : 0
+
+  role_id     = "${replace(var.runner_name, "-", "_")}_sa_iam_mgr"
+  title       = "Ona Runner SA IAM Manager"
+  description = "Manage IAM policies on the runner-owned service accounts only"
+  project     = var.project_id
+
+  permissions = [
+    "iam.serviceAccounts.getIamPolicy",
+    "iam.serviceAccounts.setIamPolicy",
+  ]
+}
+
+resource "google_service_account_iam_member" "runner_manage_runner_iam" {
+  count = !local.using_pre_created_service_accounts && local.runner_sa_email != "" ? 1 : 0
+
+  service_account_id = local.runner_sa_name
+  role               = google_project_iam_custom_role.runner_sa_iam_manager[0].id
+  member             = "serviceAccount:${local.runner_sa_email}"
+
+  depends_on = [google_service_account.runner]
+}
+
+resource "google_service_account_iam_member" "runner_manage_environment_vm_iam" {
+  count = !local.using_pre_created_service_accounts && local.runner_sa_email != "" && local.environment_vm_sa_email != "" ? 1 : 0
+
+  service_account_id = local.environment_vm_sa_name
+  role               = google_project_iam_custom_role.runner_sa_iam_manager[0].id
+  member             = "serviceAccount:${local.runner_sa_email}"
+
+  depends_on = [
+    google_service_account.runner,
+    google_service_account.environment_vm,
+  ]
+}
+
+resource "google_service_account_iam_member" "runner_manage_proxy_vm_iam" {
+  count = !local.using_pre_created_service_accounts && local.runner_sa_email != "" && local.proxy_vm_sa_email != "" ? 1 : 0
+
+  service_account_id = local.proxy_vm_sa_name
+  role               = google_project_iam_custom_role.runner_sa_iam_manager[0].id
   member             = "serviceAccount:${local.runner_sa_email}"
 
   depends_on = [
