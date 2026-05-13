@@ -343,4 +343,10 @@ variable "use_authoritative_project_metadata" {
   default     = true
 }
 
+variable "scope_secret_iam_to_runner_prefix" {
+  description = "When true, moves secretmanager.secrets.{get,set}IamPolicy out of the runner's project-level custom role and into a separate role bound with an IAM condition restricting it to secrets whose name starts with var.runner_name. When false (default), the runner holds those permissions at project scope (current behavior). Opt in to narrow the runner's IAM-management blast radius on Secret Manager."
+  type        = bool
+  default     = false
+}
+
 

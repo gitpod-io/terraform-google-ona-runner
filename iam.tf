@@ -112,7 +112,7 @@ resource "google_project_iam_custom_role" "runner" {
   description = "Minimal permissions for runner infrastructure management"
   project     = var.project_id
 
-  permissions = [
+  permissions = concat([
     # Instance lifecycle management
     "compute.instances.create",
     "compute.instances.delete",
@@ -189,13 +189,16 @@ resource "google_project_iam_custom_role" "runner" {
     "artifactregistry.repositories.downloadArtifacts",
     "artifactregistry.repositories.uploadArtifacts",
 
-    # Secret Manager permissions for environment secrets
+    # Secret Manager permissions for environment secrets.
+    # getIamPolicy/setIamPolicy on secrets are held at project scope by
+    # default. When var.scope_secret_iam_to_runner_prefix = true those two
+    # permissions move to runner_secret_iam_manager (bound with an IAM
+    # condition restricting them to secrets whose name starts with
+    # var.runner_name) and are dropped from this role.
     "secretmanager.secrets.create",
     "secretmanager.secrets.delete",
     "secretmanager.secrets.get",
     "secretmanager.secrets.list",
-    "secretmanager.secrets.getIamPolicy",
-    "secretmanager.secrets.setIamPolicy",
     "secretmanager.versions.access",
     "secretmanager.versions.add",
     "secretmanager.versions.destroy",
@@ -248,7 +251,15 @@ resource "google_project_iam_custom_role" "runner" {
     "logging.logEntries.list",   # Read environment logs from Cloud Logging
     "logging.logEntries.create", # Write prebuild logs to Cloud Logging
     "logging.logs.delete",       # Delete prebuild logs when prebuild is deleted
-  ]
+    ],
+    # Secret Manager IAM-policy permissions remain at project scope unless
+    # var.scope_secret_iam_to_runner_prefix opts in to per-prefix scoping,
+    # in which case they move to runner_secret_iam_manager.
+    var.scope_secret_iam_to_runner_prefix ? [] : [
+      "secretmanager.secrets.getIamPolicy",
+      "secretmanager.secrets.setIamPolicy",
+    ],
+  )
 }
 
 # Bind custom role to runner control plane
@@ -729,4 +740,47 @@ resource "google_service_account_iam_member" "runner_actas_proxy_vm" {
     google_service_account.runner,
     google_service_account.proxy_vm,
   ]
+}
+
+# ================================
+# RUNNER SECRET IAM MANAGER (PREFIX-SCOPED)
+# ================================
+# Opt-in via var.scope_secret_iam_to_runner_prefix. When enabled:
+#   - secretmanager.secrets.getIamPolicy and .setIamPolicy are dropped from
+#     the runner's project-level custom role (handled above).
+#   - A small custom role holding only those two permissions is granted to
+#     the runner SA with an IAM condition restricting the binding to
+#     secrets whose resource name starts with the runner name.
+#
+# This narrows the runner's IAM-management blast radius on Secret Manager
+# from "every secret in the project" to "secrets the module/runtime
+# create with the runner-name prefix". Opt-in because existing
+# deployments may have runner-managed secrets that don't follow that
+# prefix; users with non-prefixed secrets should leave this false.
+resource "google_project_iam_custom_role" "runner_secret_iam_manager" {
+  count = var.scope_secret_iam_to_runner_prefix && var.pre_created_service_accounts.runner == "" ? 1 : 0
+
+  role_id     = "${replace(var.runner_name, "-", "_")}_secret_iam_mgr"
+  title       = "Ona Runner Secret IAM Manager"
+  description = "Manage IAM on runner-prefixed secrets only (conditioned on resource name)"
+  project     = var.project_id
+
+  permissions = [
+    "secretmanager.secrets.getIamPolicy",
+    "secretmanager.secrets.setIamPolicy",
+  ]
+}
+
+resource "google_project_iam_member" "runner_secret_iam_conditioned" {
+  count = var.scope_secret_iam_to_runner_prefix && !local.using_pre_created_service_accounts && local.runner_sa_email != "" ? 1 : 0
+
+  project = var.project_id
+  role    = google_project_iam_custom_role.runner_secret_iam_manager[0].id
+  member  = "serviceAccount:${local.runner_sa_email}"
+
+  condition {
+    title       = "restrict-to-runner-prefixed-secrets"
+    description = "Allow IAM management only on secrets whose name starts with the runner name"
+    expression  = "resource.name.startsWith(\"projects/${var.project_id}/secrets/${var.runner_name}\")"
+  }
 }
