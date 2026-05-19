@@ -311,6 +311,13 @@ resource "google_compute_region_instance_group_manager" "runner" {
 
   lifecycle {
     create_before_destroy = true
+    ignore_changes = [
+      # The runner control plane manages the version block (instance_template, name)
+      # for application-level self-updates. Without ignore_changes, terraform refresh sees
+      # drift and apply re-asserts the bootstrap template, causing wait_for_instances=true
+      # to time out as the control plane re-overrides.
+      version,
+    ]
   }
 }
 
