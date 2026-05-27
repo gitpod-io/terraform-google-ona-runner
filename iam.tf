@@ -135,6 +135,7 @@ resource "google_project_iam_custom_role" "runner" {
     "compute.disks.delete",
     "compute.disks.get",
     "compute.disks.list",
+    "compute.disks.setLabels",
 
     # Network resources
     "compute.networks.get",
@@ -173,9 +174,15 @@ resource "google_project_iam_custom_role" "runner" {
     "compute.images.delete",
     "compute.images.setLabels",
 
-    # Required for creating images from disks (snapshot reconciler)
+    # Required for creating images and snapshots from disks
+    "compute.disks.createSnapshot",
     "compute.disks.use",
     "compute.disks.useReadOnly",
+
+    # Snapshot management for dual-disk data recovery
+    "compute.snapshots.delete",
+    "compute.snapshots.get",
+    "compute.snapshots.list",
 
     # Artifact Registry permissions for devcontainer image cache (minimal)
     "artifactregistry.repositories.get",
