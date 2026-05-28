@@ -121,6 +121,15 @@ The runner service account uses a custom IAM role with minimal required permissi
 - `compute.disks.delete` - Delete unused persistent disks
 - `compute.disks.get` - Get disk information
 - `compute.disks.list` - List disks for management
+- `compute.disks.setLabels` - Label data disks for dual-disk lifecycle tracking
+- `compute.disks.createSnapshot` - Snapshot detached data disks for dual-disk recovery
+- `compute.disks.use` - Attach persistent disks to workspace VMs
+- `compute.disks.useReadOnly` - Use persistent disks as read-only image sources
+
+**Snapshot Management**:
+- `compute.snapshots.delete` - Delete data disk snapshots when environments are deleted
+- `compute.snapshots.get` - Get data disk snapshot information for recovery
+- `compute.snapshots.list` - List data disk snapshots for recovery and readiness checks
 
 **Network Resources**:
 - `compute.networks.get` - Get network configuration

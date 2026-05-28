@@ -93,7 +93,7 @@ When using pre-created service accounts, these roles must be created beforehand 
 - **Title**: Ona Runner
 - **Description**: Minimal permissions for runner infrastructure management
 
-**Permissions** (75 total):
+**Permissions** (98 total):
 ```
 # Instance lifecycle management
 compute.instances.create
@@ -117,8 +117,15 @@ compute.disks.create
 compute.disks.delete
 compute.disks.get
 compute.disks.list
+compute.disks.setLabels
+compute.disks.createSnapshot
 compute.disks.use
 compute.disks.useReadOnly
+
+# Snapshot management
+compute.snapshots.delete
+compute.snapshots.get
+compute.snapshots.list
 
 # Network resources
 compute.networks.get
@@ -416,7 +423,13 @@ includedPermissions:
 - compute.disks.delete
 - compute.disks.get
 - compute.disks.list
+- compute.disks.setLabels
+- compute.disks.createSnapshot
 - compute.disks.use
+- compute.disks.useReadOnly
+- compute.snapshots.delete
+- compute.snapshots.get
+- compute.snapshots.list
 - compute.networks.get
 - compute.networks.list
 - compute.networks.use
@@ -647,7 +660,7 @@ Replace the single runner custom role binding with these 8 predefined roles:
 export SA="${RUNNER_NAME}-runner@${PROJECT_ID}.iam.gserviceaccount.com"
 
 # Compute instance, disk, network, template, MIG, and autoscaler management.
-# Needed: 42 compute permissions for VM lifecycle, disks, networks, operations,
+# Needed: compute permissions for VM lifecycle, disks, networks, operations,
 #   machine/disk types, instance templates, MIG updates, and autoscaler scaling.
 # Excess: grants 223 additional permissions including network endpoint
 #   group and machine image management that the runner does not use.
@@ -655,10 +668,11 @@ gcloud projects add-iam-policy-binding ${PROJECT_ID} \
   --member="serviceAccount:${SA}" \
   --role="roles/compute.instanceAdmin"
 
-# Compute image create, delete, and label management.
-# Needed: images.create, images.delete, images.setLabels
-# Excess: grants 143 additional permissions including full disk/snapshot admin.
-# Note: these 3 permissions are not in roles/compute.instanceAdmin.
+# Compute image, disk snapshot, and snapshot lifecycle management.
+# Needed: images.create, images.delete, images.setLabels,
+#   disks.createSnapshot, snapshots.get, snapshots.list, snapshots.delete.
+# Excess: grants additional permissions including full disk/snapshot admin.
+# Note: these permissions are not in roles/compute.instanceAdmin.
 gcloud projects add-iam-policy-binding ${PROJECT_ID} \
   --member="serviceAccount:${SA}" \
   --role="roles/compute.storageAdmin"
