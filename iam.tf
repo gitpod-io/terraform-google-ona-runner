@@ -180,6 +180,7 @@ resource "google_project_iam_custom_role" "runner" {
     "compute.disks.useReadOnly",
 
     # Snapshot management for dual-disk data recovery
+    "compute.snapshots.create",
     "compute.snapshots.delete",
     "compute.snapshots.get",
     "compute.snapshots.list",
