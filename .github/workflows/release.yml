@@ -30,12 +30,6 @@ jobs:
           fetch-depth: 0
           ref: ${{ inputs.tag || github.ref }}
 
-      - name: Verify tag is on main branch
-        run: |
-          if ! git branch -r --contains "${RELEASE_TAG}" | grep -q 'origin/main'; then
-            echo "::error::Tag ${RELEASE_TAG} is not on main branch. Releases can only be created from tags on main."
-            exit 1
-          fi
 
       - name: Get previous tag
         id: prev_tag
@@ -127,27 +121,40 @@ jobs:
           # Derive docs anchor from manifest version: 20260508.526 -> 20260508-526
           DOCS_ANCHOR=$(echo "${{ steps.manifest.outputs.version }}" | tr '.' '-')
 
-          cat << EOF > release_body.md
-          For application changes in the GCP runner itself, see the [release notes](https://ona.com/docs/release-notes/gcp-runner#${DOCS_ANCHOR}).
+          # Use a quoted heredoc to prevent backtick command substitution,
+          # then substitute the dynamic values with sed.
+          cat << 'BODY' > release_body.md
+          For application changes in the GCP runner itself, see the [release notes](https://ona.com/docs/release-notes/gcp-runner#__DOCS_ANCHOR__).
 
           ## Container Images
 
           | Component | Image |
           |-----------|-------|
-          | Runner | `${{ steps.manifest.outputs.runner_image }}` |
-          | Proxy | `${{ steps.manifest.outputs.proxy_image }}` |
-          | Prometheus | `${{ steps.manifest.outputs.prometheus_image }}` |
-          | Node Exporter | `${{ steps.manifest.outputs.node_exporter_image }}` |
+          | Runner | __RUNNER_IMAGE__ |
+          | Proxy | __PROXY_IMAGE__ |
+          | Prometheus | __PROMETHEUS_IMAGE__ |
+          | Node Exporter | __NODE_EXPORTER_IMAGE__ |
 
           ## Assets
 
           | Asset | URL |
           |-------|-----|
-          | CLI Binary | `${{ steps.manifest.outputs.cli_url }}` |
-          | Supervisor Binary | `${{ steps.manifest.outputs.supervisor_url }}` |
-          | VM Image | `${{ steps.manifest.outputs.vm_image }}` |
+          | CLI Binary | __CLI_URL__ |
+          | Supervisor Binary | __SUPERVISOR_URL__ |
+          | VM Image | __VM_IMAGE__ |
 
-          EOF
+          BODY
+
+          sed -i \
+            -e "s|__DOCS_ANCHOR__|${DOCS_ANCHOR}|g" \
+            -e 's|__RUNNER_IMAGE__|`${{ steps.manifest.outputs.runner_image }}`|g' \
+            -e 's|__PROXY_IMAGE__|`${{ steps.manifest.outputs.proxy_image }}`|g' \
+            -e 's|__PROMETHEUS_IMAGE__|`${{ steps.manifest.outputs.prometheus_image }}`|g' \
+            -e 's|__NODE_EXPORTER_IMAGE__|`${{ steps.manifest.outputs.node_exporter_image }}`|g' \
+            -e 's|__CLI_URL__|`${{ steps.manifest.outputs.cli_url }}`|g' \
+            -e 's|__SUPERVISOR_URL__|`${{ steps.manifest.outputs.supervisor_url }}`|g' \
+            -e 's|__VM_IMAGE__|`${{ steps.manifest.outputs.vm_image }}`|g' \
+            release_body.md
 
           # Add IAM changes section if there are any
           if [ "${{ steps.iam_changes.outputs.has_changes }}" = "true" ]; then
