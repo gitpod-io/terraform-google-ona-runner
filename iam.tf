@@ -183,6 +183,8 @@ resource "google_project_iam_custom_role" "runner" {
     "compute.snapshots.delete",
     "compute.snapshots.get",
     "compute.snapshots.list",
+    "compute.snapshots.setLabels",
+    "compute.snapshots.useReadOnly",
 
     # Artifact Registry permissions for devcontainer image cache (minimal)
     "artifactregistry.repositories.get",
