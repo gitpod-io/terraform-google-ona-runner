@@ -248,6 +248,7 @@ resource "google_project_iam_custom_role" "runner" {
     "compute.autoscalers.create",
     "compute.autoscalers.delete",
     "compute.autoscalers.get",
+    "compute.autoscalers.list",
     "compute.autoscalers.update",
 
     # Cloud Monitoring permissions for publishing warm pool scaling metrics
