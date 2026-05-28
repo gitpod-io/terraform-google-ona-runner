@@ -93,7 +93,7 @@ When using pre-created service accounts, these roles must be created beforehand 
 - **Title**: Ona Runner
 - **Description**: Minimal permissions for runner infrastructure management
 
-**Permissions** (98 total):
+**Permissions** (99 total):
 ```
 # Instance lifecycle management
 compute.instances.create
@@ -218,6 +218,7 @@ compute.instanceGroups.list
 compute.autoscalers.create
 compute.autoscalers.delete
 compute.autoscalers.get
+compute.autoscalers.list
 compute.autoscalers.update
 
 # Cloud Monitoring (warm pool scaling metrics)
@@ -501,6 +502,7 @@ includedPermissions:
 - compute.autoscalers.create
 - compute.autoscalers.delete
 - compute.autoscalers.get
+- compute.autoscalers.list
 - compute.autoscalers.update
 - monitoring.timeSeries.create
 - logging.logEntries.list

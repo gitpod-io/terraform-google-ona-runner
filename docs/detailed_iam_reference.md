@@ -172,6 +172,7 @@ The runner service account uses a custom IAM role with minimal required permissi
 - `compute.instanceGroupManagers.update` - Update instance groups
 - `compute.instanceGroups.delete` - Delete underlying instance groups (required when deleting MIGs)
 - `compute.instanceGroups.list` - List instance group members
+- `compute.autoscalers.list` - List warm pool autoscalers for orphan cleanup
 
 ### Cloud Logging Permissions
 
