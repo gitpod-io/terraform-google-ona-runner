@@ -142,6 +142,7 @@ compute.disks.delete
 compute.disks.get
 compute.disks.list
 compute.disks.setLabels
+compute.disks.update
 compute.diskTypes.get
 compute.diskTypes.list
 compute.images.get

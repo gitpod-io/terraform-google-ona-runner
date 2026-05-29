@@ -122,6 +122,7 @@ The runner service account uses a custom IAM role with minimal required permissi
 - `compute.disks.get` - Get disk information
 - `compute.disks.list` - List disks for management
 - `compute.disks.setLabels` - Label data disks for dual-disk lifecycle tracking
+- `compute.disks.update` - Preserve claimed warm-pool data disks by updating disk properties
 - `compute.disks.createSnapshot` - Snapshot detached data disks for dual-disk recovery
 - `compute.disks.use` - Attach persistent disks to workspace VMs
 - `compute.disks.useReadOnly` - Use persistent disks as read-only image sources
