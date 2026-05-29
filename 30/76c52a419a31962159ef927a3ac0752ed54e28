@@ -1,0 +1,25 @@
+docs/detailed_iam_reference.md
+  s_b81e6114709583::t_89cb41d9920377 125
+iam.tf
+  s_b81e6114709583::t_89cb41d9920377 139
+docs/iam.md
+  s_b81e6114709583::t_89cb41d9920377 96,121,429
+docs/terraform_service_account_permissions.md
+  s_b81e6114709583::t_89cb41d9920377 145
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "3076c52a419a31962159ef927a3ac0752ed54e28",
+  "prompts": {},
+  "sessions": {
+    "s_b81e6114709583": {
+      "agent_id": {
+        "tool": "Ona",
+        "id": "session-30555",
+        "model": "opus-4.6"
+      },
+      "human_author": "Nandaja <nandaja.varma@gmail.com>"
+    }
+  }
+}
