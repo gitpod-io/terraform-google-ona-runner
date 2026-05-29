@@ -136,6 +136,7 @@ resource "google_project_iam_custom_role" "runner" {
     "compute.disks.get",
     "compute.disks.list",
     "compute.disks.setLabels",
+    "compute.disks.update",
 
     # Network resources
     "compute.networks.get",
