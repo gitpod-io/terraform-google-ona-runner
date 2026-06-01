@@ -144,10 +144,30 @@ Check runner status in the Ona dashboard:
 | `development_version` | Development build version | `""` |
 | `labels` | Labels to apply to resources | `{}` |
 | `proxy_config` | HTTP/HTTPS proxy configuration | `null` |
+| `enable_additional_regions` | Create compute-only regions for environment VMs and warm pools | `false` |
+| `additional_regions` | Region, zones, and subnet CIDR for created compute-only regions | `[]` |
+| `compute_regions` | Compute-only regions using existing subnet names | `[]` |
 | `loadbalancer_type` | `external` (default) or `internal` | `"external"` |
 | `certificate_secret_id` | Secret Manager cert for internal LB | `""` (auto-created) |
 | `enable_certbot` | Enable Let's Encrypt certificate automation | `false` |
 | `certbot_email` | Email for Let's Encrypt registration | `""` |
+
+### Additional Compute Regions
+
+Set `enable_additional_regions = true` to create extra regional subnets and Cloud NAT for environment VMs and warm pools. Runner, proxy, Redis, DNS, and load balancer resources remain in the primary `region`.
+
+```hcl
+enable_additional_regions = true
+additional_regions = [
+  {
+    region      = "us-east1"
+    zones       = ["us-east1-b", "us-east1-c"]
+    subnet_cidr = "10.1.0.0/24"
+  }
+]
+```
+
+If the regional subnets already exist, leave `enable_additional_regions = false` and set `compute_regions` with the existing subnet names.
 
 ### Internal Load Balancer
 

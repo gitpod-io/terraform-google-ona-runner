@@ -9,11 +9,17 @@ module "services" {
 module "networking" {
   source = "./modules/networking"
 
-  project_id             = var.project_id
-  name_prefix            = var.runner_name
-  region                 = var.region
-  vpc_name               = "${var.runner_name}-vpc"
-  subnet_cidr            = "10.0.0.0/24"
+  project_id  = var.project_id
+  name_prefix = var.runner_name
+  region      = var.region
+  vpc_name    = "${var.runner_name}-vpc"
+  subnet_cidr = "10.0.0.0/24"
+  additional_regions = var.enable_additional_regions ? [
+    for r in var.additional_regions : {
+      region      = r.region
+      subnet_cidr = r.subnet_cidr
+    }
+  ] : []
   create_private_network = var.loadbalancer_type == "internal"
 
   depends_on = [module.services]
@@ -65,6 +71,14 @@ module "certbot" {
 locals {
   vpc_name           = module.networking.vpc_name
   runner_subnet_name = module.networking.runner_subnet_name
+  compute_regions = var.enable_additional_regions ? [
+    for r in var.additional_regions : {
+      region                       = r.region
+      zones                        = r.zones
+      subnet_name                  = module.networking.additional_runner_subnet_names[r.region]
+      disk_encryption_kms_key_name = r.disk_encryption_kms_key_name
+    }
+  ] : var.compute_regions
 
   # Certbot-created secret takes priority, then user-provided, then self-signed.
   resolved_certificate_secret_id = var.enable_certbot ? module.certbot[0].certificate_secret_id : (
@@ -151,6 +165,7 @@ module "runner" {
   runner_id           = var.runner_id
   runner_token        = var.runner_token
   zones               = var.zones
+  compute_regions     = local.compute_regions
   runner_domain       = var.runner_domain
   proxy_config        = var.proxy_config
   ca_certificate      = var.ca_certificate

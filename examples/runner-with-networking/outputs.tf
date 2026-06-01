@@ -34,3 +34,13 @@ output "runner_subnet_name" {
   description = "Name of the runner subnet"
   value       = local.runner_subnet_name
 }
+
+output "additional_runner_subnet_names" {
+  description = "Names of additional environment VM subnets by region"
+  value       = module.networking.additional_runner_subnet_names
+}
+
+output "compute_regions" {
+  description = "Compute regions passed to the runner module"
+  value       = local.compute_regions
+}

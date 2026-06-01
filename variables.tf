@@ -133,6 +133,42 @@ variable "zones" {
   type        = list(string)
 }
 
+variable "compute_regions" {
+  description = "Additional regions used only for environment VM compute and warm pools. Runner, proxy, Redis, and other control-plane infrastructure remain in var.region."
+  type = list(object({
+    region                       = string
+    zones                        = list(string)
+    subnet_name                  = string
+    disk_encryption_kms_key_name = optional(string, "")
+  }))
+  default = []
+
+  validation {
+    condition = alltrue([
+      for r in var.compute_regions :
+      r.region != "" && r.subnet_name != "" && length(r.zones) > 0
+    ])
+    error_message = "Each compute region must set region, subnet_name, and at least one zone."
+  }
+
+  validation {
+    condition = alltrue(flatten([
+      for r in var.compute_regions : [
+        for z in r.zones : startswith(z, "${r.region}-")
+      ]
+    ]))
+    error_message = "Each compute region zone must belong to its configured region."
+  }
+
+  validation {
+    condition = alltrue([
+      for r in var.compute_regions :
+      r.disk_encryption_kms_key_name == "" || can(regex("^projects/[^/]+/locations/[^/]+/keyRings/[^/]+/cryptoKeys/[^/]+$", r.disk_encryption_kms_key_name))
+    ])
+    error_message = "Each compute region disk_encryption_kms_key_name must be empty or in the format projects/{project}/locations/{location}/keyRings/{keyring}/cryptoKeys/{key}."
+  }
+}
+
 variable "certificate_id" {
   description = "The ID of the certificate from Certificate Manager (for external LB)"
   type        = string
@@ -348,4 +384,3 @@ variable "use_authoritative_project_metadata" {
   type        = bool
   default     = true
 }
-

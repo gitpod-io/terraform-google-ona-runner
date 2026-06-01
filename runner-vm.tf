@@ -19,6 +19,8 @@ locals {
 
   # Agent storage bucket (only created when agents are enabled)
   agent_bucket_name = var.enable_agents ? google_storage_bucket.agent_storage[0].name : ""
+
+  compute_regions_json = jsonencode(var.compute_regions)
 }
 
 # ================================
@@ -111,6 +113,7 @@ data "cloudinit_config" "runner" {
       PROJECT_ID                           = var.project_id
       REGION                               = var.region
       ZONES                                = join(",", var.zones)
+      COMPUTE_REGIONS                      = local.compute_regions_json
       VPC_NAME                             = var.vpc_name
       VPC_PROJECT_ID                       = local.vpc_project_id
       SUBNET_NAME                          = var.runner_subnet_name

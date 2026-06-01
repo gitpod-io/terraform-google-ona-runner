@@ -20,6 +20,14 @@ output "runner_subnet_id" {
   value       = google_compute_subnetwork.runner_subnet.id
 }
 
+output "additional_runner_subnet_names" {
+  description = "Names of additional environment VM subnets by region"
+  value = {
+    for region, subnet in google_compute_subnetwork.additional_runner_subnet :
+    region => subnet.name
+  }
+}
+
 output "router_name" {
   description = "Name of the Cloud Router (if created)"
   value       = google_compute_router.router.name

@@ -20,6 +20,59 @@ variable "zones" {
   }
 }
 
+variable "compute_regions" {
+  description = "Additional regions used only for environment VM compute and warm pools with subnet names that already exist in the runner VPC. Ignored when enable_additional_regions is true."
+  type = list(object({
+    region                       = string
+    zones                        = list(string)
+    subnet_name                  = string
+    disk_encryption_kms_key_name = optional(string, "")
+  }))
+  default = []
+}
+
+variable "enable_additional_regions" {
+  description = "Create additional regional environment VM subnets and NAT, then pass them as compute regions to the runner module."
+  type        = bool
+  default     = false
+}
+
+variable "additional_regions" {
+  description = "Additional regions to create for environment VM compute when enable_additional_regions is true."
+  type = list(object({
+    region                       = string
+    zones                        = list(string)
+    subnet_cidr                  = string
+    disk_encryption_kms_key_name = optional(string, "")
+  }))
+  default = []
+
+  validation {
+    condition = alltrue([
+      for r in var.additional_regions :
+      r.region != "" && r.subnet_cidr != "" && length(r.zones) > 0
+    ])
+    error_message = "Each additional region must set region, subnet_cidr, and at least one zone."
+  }
+
+  validation {
+    condition = alltrue(flatten([
+      for r in var.additional_regions : [
+        for z in r.zones : startswith(z, "${r.region}-")
+      ]
+    ]))
+    error_message = "Each additional region zone must belong to its configured region."
+  }
+
+  validation {
+    condition = alltrue([
+      for r in var.additional_regions :
+      r.disk_encryption_kms_key_name == "" || can(regex("^projects/[^/]+/locations/[^/]+/keyRings/[^/]+/cryptoKeys/[^/]+$", r.disk_encryption_kms_key_name))
+    ])
+    error_message = "Each additional region disk_encryption_kms_key_name must be empty or in the format projects/{project}/locations/{location}/keyRings/{keyring}/cryptoKeys/{key}."
+  }
+}
+
 variable "runner_name" {
   description = "Name of the runner"
   type        = string

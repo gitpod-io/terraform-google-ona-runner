@@ -20,6 +20,22 @@ runner_domain  = "gitpod.example.com"
 # labels = {}
 # proxy_config = null
 
+# Optional: create additional compute-only regions for environment VMs and warm pools.
+# Runner, proxy, Redis, DNS, and load balancer resources remain in `region`.
+# enable_additional_regions = true
+# additional_regions = [
+#   {
+#     region      = "us-east1"
+#     zones       = ["us-east1-b", "us-east1-c"]
+#     subnet_cidr = "10.1.0.0/24"
+#   },
+#   {
+#     region      = "us-west1"
+#     zones       = ["us-west1-a", "us-west1-b"]
+#     subnet_cidr = "10.2.0.0/24"
+#   }
+# ]
+
 # Runner size profile: "regular" (default) or "small" (cost-optimized for test/dev)
 # "small" uses: n4-standard-2 VMs, 1 proxy replica, nano Redis nodes with no replicas
 # runner_size = "regular"

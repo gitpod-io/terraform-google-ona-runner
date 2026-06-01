@@ -592,6 +592,7 @@ write_files:
       PROJECT_ID=${PROJECT_ID}
       REGION=${REGION}
       ZONES=${ZONES}
+      COMPUTE_REGIONS='${COMPUTE_REGIONS}'
       VPC_NAME=${VPC_NAME}
       VPC_PROJECT_ID=${VPC_PROJECT_ID}
       SUBNET_NAME=${SUBNET_NAME}
@@ -729,6 +730,9 @@ write_files:
         --project-id=${PROJECT_ID} \
         --region=${REGION} \
         --zones=${ZONES} \
+%{ if COMPUTE_REGIONS != "[]" ~}
+        --compute-regions='${COMPUTE_REGIONS}' \
+%{ endif ~}
         --vpc-name=${VPC_NAME} \
         --vpc-project-id=${VPC_PROJECT_ID} \
         --subnet-name=${SUBNET_NAME} \

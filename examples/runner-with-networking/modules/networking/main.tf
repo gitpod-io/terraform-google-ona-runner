@@ -8,6 +8,12 @@ terraform {
   }
 }
 
+locals {
+  additional_regions_by_region = {
+    for r in var.additional_regions : r.region => r
+  }
+}
+
 # VPC creation
 resource "google_compute_network" "vpc" {
   name                    = "${var.name_prefix}-vpc"
@@ -46,10 +52,41 @@ resource "google_compute_subnetwork" "proxy_subnet" {
   role    = "ACTIVE"
 }
 
+resource "google_compute_subnetwork" "additional_runner_subnet" {
+  for_each = local.additional_regions_by_region
+
+  name          = "${var.name_prefix}-${each.key}-runner-subnet"
+  ip_cidr_range = each.value.subnet_cidr
+  region        = each.key
+  network       = google_compute_network.vpc.id
+  project       = var.project_id
+
+  private_ip_google_access = true
+
+  log_config {
+    aggregation_interval = "INTERVAL_10_MIN"
+    flow_sampling        = 0.5
+    metadata             = "INCLUDE_ALL_METADATA"
+  }
+}
+
 # Cloud Router for NAT
 resource "google_compute_router" "router" {
   name    = "${var.name_prefix}-router"
   region  = var.region
+  network = google_compute_network.vpc.id
+  project = var.project_id
+
+  bgp {
+    asn = 64514
+  }
+}
+
+resource "google_compute_router" "additional_router" {
+  for_each = local.additional_regions_by_region
+
+  name    = "${var.name_prefix}-${each.key}-router"
+  region  = each.key
   network = google_compute_network.vpc.id
   project = var.project_id
 
@@ -69,6 +106,25 @@ resource "google_compute_router_nat" "nat" {
   source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
 
   # Enable NAT for VM instances
+  endpoint_types = ["ENDPOINT_TYPE_VM", "ENDPOINT_TYPE_SWG"]
+
+  log_config {
+    enable = true
+    filter = "ERRORS_ONLY"
+  }
+}
+
+resource "google_compute_router_nat" "additional_nat" {
+  for_each = local.additional_regions_by_region
+
+  name    = "${var.name_prefix}-${each.key}-nat"
+  router  = google_compute_router.additional_router[each.key].name
+  region  = each.key
+  project = var.project_id
+
+  nat_ip_allocate_option             = "AUTO_ONLY"
+  source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
+
   endpoint_types = ["ENDPOINT_TYPE_VM", "ENDPOINT_TYPE_SWG"]
 
   log_config {
