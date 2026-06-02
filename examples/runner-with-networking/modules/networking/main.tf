@@ -66,7 +66,7 @@ resource "google_compute_subnetwork" "additional_proxy_subnet" {
   role    = "ACTIVE"
 }
 
-resource "google_compute_subnetwork" "additional_runner_subnet" {
+resource "google_compute_subnetwork" "additional_compute_subnet" {
   for_each = local.additional_regions_by_region
 
   name          = "${var.name_prefix}-${each.key}-runner-subnet"
@@ -82,6 +82,11 @@ resource "google_compute_subnetwork" "additional_runner_subnet" {
     flow_sampling        = 0.5
     metadata             = "INCLUDE_ALL_METADATA"
   }
+}
+
+moved {
+  from = google_compute_subnetwork.additional_runner_subnet
+  to   = google_compute_subnetwork.additional_compute_subnet
 }
 
 # Cloud Router for NAT

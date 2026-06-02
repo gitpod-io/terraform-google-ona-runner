@@ -75,7 +75,7 @@ locals {
     for r in var.additional_regions : {
       region                       = r.region
       zones                        = r.zones
-      subnet_name                  = module.networking.additional_runner_subnet_names[r.region]
+      subnet_name                  = module.networking.additional_compute_subnet_names[r.region]
       disk_encryption_kms_key_name = r.disk_encryption_kms_key_name
     }
   ] : var.compute_regions

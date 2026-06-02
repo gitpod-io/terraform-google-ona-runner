@@ -20,10 +20,18 @@ output "runner_subnet_id" {
   value       = google_compute_subnetwork.runner_subnet.id
 }
 
-output "additional_runner_subnet_names" {
-  description = "Names of additional environment VM subnets by region"
+output "additional_compute_subnet_names" {
+  description = "Names of additional compute subnets by region"
   value = {
-    for region, subnet in google_compute_subnetwork.additional_runner_subnet :
+    for region, subnet in google_compute_subnetwork.additional_compute_subnet :
+    region => subnet.name
+  }
+}
+
+output "additional_runner_subnet_names" {
+  description = "Deprecated alias for additional_compute_subnet_names"
+  value = {
+    for region, subnet in google_compute_subnetwork.additional_compute_subnet :
     region => subnet.name
   }
 }

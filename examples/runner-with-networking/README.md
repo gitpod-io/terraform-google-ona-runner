@@ -251,7 +251,7 @@ The certificate is stored as JSON:
 
 ## What's Created
 
-- **VPC and Networking**: Complete network setup with subnets and firewall rules (includes proxy-only subnet for internal LB)
+- **VPC and Networking**: Complete network setup with compute subnets and firewall rules (includes proxy-only subnet for internal LB)
 - **DNS Zone**: Managed DNS zone for your domain
 - **SSL Certificate**: Certificate Manager cert (external LB) or self-signed cert in Secret Manager (internal LB)
 - **Runner Infrastructure**: VM instances, load balancer, and all required services

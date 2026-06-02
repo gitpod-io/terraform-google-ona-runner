@@ -35,9 +35,14 @@ output "runner_subnet_name" {
   value       = local.runner_subnet_name
 }
 
+output "additional_compute_subnet_names" {
+  description = "Names of additional compute subnets by region"
+  value       = module.networking.additional_compute_subnet_names
+}
+
 output "additional_runner_subnet_names" {
-  description = "Names of additional environment VM subnets by region"
-  value       = module.networking.additional_runner_subnet_names
+  description = "Deprecated alias for additional_compute_subnet_names"
+  value       = module.networking.additional_compute_subnet_names
 }
 
 output "compute_regions" {
