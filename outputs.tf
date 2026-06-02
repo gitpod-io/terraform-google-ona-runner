@@ -23,6 +23,19 @@ output "proxy_instance_group_name" {
   value       = google_compute_region_instance_group_manager.proxy.name
 }
 
+output "proxy_instance_group_names" {
+  description = "Names of proxy VM instance group managers by region"
+  value = merge(
+    {
+      (var.region) = google_compute_region_instance_group_manager.proxy.name
+    },
+    {
+      for region, mig in google_compute_region_instance_group_manager.proxy_additional :
+      region => mig.name
+    }
+  )
+}
+
 output "runner_service_account_email" {
   description = "Service account of runner"
   value       = local.runner_sa_email

@@ -108,4 +108,13 @@ locals {
   environment_vm_sa_name = var.pre_created_service_accounts.environment_vm != "" ? "projects/${var.project_id}/serviceAccounts/${var.pre_created_service_accounts.environment_vm}" : try(google_service_account.environment_vm[0].name, "")
   proxy_vm_sa_name       = var.pre_created_service_accounts.proxy_vm != "" ? "projects/${var.project_id}/serviceAccounts/${var.pre_created_service_accounts.proxy_vm}" : try(google_service_account.proxy_vm[0].name, "")
 
+  additional_proxy_regions = var.loadbalancer_type == "external" ? {
+    for r in var.compute_regions : r.region => {
+      region       = r.region
+      zones        = r.zones
+      subnet_name  = r.subnet_name
+      kms_key_name = r.disk_encryption_kms_key_name != "" ? r.disk_encryption_kms_key_name : null
+    }
+  } : {}
+
 }

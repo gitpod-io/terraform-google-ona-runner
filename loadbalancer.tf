@@ -64,6 +64,15 @@ resource "google_compute_backend_service" "proxy" {
     capacity_scaler = 1.0
   }
 
+  dynamic "backend" {
+    for_each = google_compute_region_instance_group_manager.proxy_additional
+    content {
+      group           = backend.value.instance_group
+      balancing_mode  = "UTILIZATION"
+      capacity_scaler = 1.0
+    }
+  }
+
   health_checks = [google_compute_health_check.proxy_ssl[0].id]
 
   # Enable connection draining with configurable timeout
@@ -77,7 +86,9 @@ resource "google_compute_backend_service" "proxy" {
   depends_on = [
     google_compute_health_check.proxy_ssl[0],
     google_compute_region_instance_group_manager.proxy,
-    google_compute_region_autoscaler.proxy
+    google_compute_region_instance_group_manager.proxy_additional,
+    google_compute_region_autoscaler.proxy,
+    google_compute_region_autoscaler.proxy_additional
   ]
 }
 
@@ -97,6 +108,15 @@ resource "google_compute_backend_service" "proxy_http" {
     capacity_scaler = 1.0
   }
 
+  dynamic "backend" {
+    for_each = google_compute_region_instance_group_manager.proxy_additional
+    content {
+      group           = backend.value.instance_group
+      balancing_mode  = "UTILIZATION"
+      capacity_scaler = 1.0
+    }
+  }
+
   health_checks = [google_compute_health_check.proxy_http[0].id]
 
   # Enable connection draining with configurable timeout
@@ -110,7 +130,9 @@ resource "google_compute_backend_service" "proxy_http" {
   depends_on = [
     google_compute_health_check.proxy_http[0],
     google_compute_region_instance_group_manager.proxy,
-    google_compute_region_autoscaler.proxy
+    google_compute_region_instance_group_manager.proxy_additional,
+    google_compute_region_autoscaler.proxy,
+    google_compute_region_autoscaler.proxy_additional
   ]
 }
 

@@ -144,9 +144,9 @@ Check runner status in the Ona dashboard:
 | `development_version` | Development build version | `""` |
 | `labels` | Labels to apply to resources | `{}` |
 | `proxy_config` | HTTP/HTTPS proxy configuration | `null` |
-| `enable_additional_regions` | Create compute-only regions for environment VMs and warm pools | `false` |
-| `additional_regions` | Region, zones, and subnet CIDR for created compute-only regions | `[]` |
-| `compute_regions` | Compute-only regions using existing subnet names | `[]` |
+| `enable_additional_regions` | Create additional regions for environment VMs, warm pools, and external proxy MIGs | `false` |
+| `additional_regions` | Region, zones, and subnet CIDR for created additional regions | `[]` |
+| `compute_regions` | Additional regions using existing subnet names | `[]` |
 | `loadbalancer_type` | `external` (default) or `internal` | `"external"` |
 | `certificate_secret_id` | Secret Manager cert for internal LB | `""` (auto-created) |
 | `enable_certbot` | Enable Let's Encrypt certificate automation | `false` |
@@ -154,7 +154,7 @@ Check runner status in the Ona dashboard:
 
 ### Additional Compute Regions
 
-Set `enable_additional_regions = true` to create extra regional subnets and Cloud NAT for environment VMs and warm pools. Runner, proxy, Redis, DNS, and load balancer resources remain in the primary `region`.
+Set `enable_additional_regions = true` to create extra regional subnets and Cloud NAT for environment VMs and warm pools. When `loadbalancer_type = "external"`, the same regions also get proxy MIGs attached to the global external load balancer. Runner, Redis, DNS, and other control-plane resources remain in the primary `region`.
 
 ```hcl
 enable_additional_regions = true
