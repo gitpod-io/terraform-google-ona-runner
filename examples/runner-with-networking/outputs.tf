@@ -40,11 +40,6 @@ output "additional_compute_subnet_names" {
   value       = module.networking.additional_compute_subnet_names
 }
 
-output "additional_runner_subnet_names" {
-  description = "Deprecated alias for additional_compute_subnet_names"
-  value       = module.networking.additional_compute_subnet_names
-}
-
 output "compute_regions" {
   description = "Compute regions passed to the runner module"
   value       = local.compute_regions

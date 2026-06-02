@@ -28,14 +28,6 @@ output "additional_compute_subnet_names" {
   }
 }
 
-output "additional_runner_subnet_names" {
-  description = "Deprecated alias for additional_compute_subnet_names"
-  value = {
-    for region, subnet in google_compute_subnetwork.additional_compute_subnet :
-    region => subnet.name
-  }
-}
-
 output "additional_proxy_subnet_names" {
   description = "Names of additional proxy-only subnets by region"
   value = {
