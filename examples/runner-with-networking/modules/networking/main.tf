@@ -12,6 +12,7 @@ locals {
   additional_regions_by_region = {
     for r in var.additional_regions : r.region => r
   }
+  additional_region_keys = sort(keys(local.additional_regions_by_region))
 }
 
 # VPC creation
@@ -45,6 +46,19 @@ resource "google_compute_subnetwork" "proxy_subnet" {
   name          = "${var.name_prefix}-proxy-subnet"
   ip_cidr_range = "100.64.0.0/16"
   region        = var.region
+  network       = google_compute_network.vpc.id
+  project       = var.project_id
+
+  purpose = "REGIONAL_MANAGED_PROXY"
+  role    = "ACTIVE"
+}
+
+resource "google_compute_subnetwork" "additional_proxy_subnet" {
+  for_each = var.create_private_network ? local.additional_regions_by_region : {}
+
+  name          = "${var.name_prefix}-${each.key}-proxy-subnet"
+  ip_cidr_range = cidrsubnet("100.64.0.0/10", 6, index(local.additional_region_keys, each.key) + 1)
+  region        = each.key
   network       = google_compute_network.vpc.id
   project       = var.project_id
 

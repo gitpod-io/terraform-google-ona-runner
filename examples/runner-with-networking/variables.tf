@@ -21,7 +21,7 @@ variable "zones" {
 }
 
 variable "compute_regions" {
-  description = "Additional regions used only for environment VM compute and warm pools with subnet names that already exist in the runner VPC. Ignored when enable_additional_regions is true."
+  description = "Additional regions using subnet names that already exist in the runner VPC. Also used for external and cross-region internal proxy MIGs. Ignored when enable_additional_regions is true."
   type = list(object({
     region                       = string
     zones                        = list(string)
@@ -38,7 +38,7 @@ variable "enable_additional_regions" {
 }
 
 variable "additional_regions" {
-  description = "Additional regions to create for environment VM compute when enable_additional_regions is true."
+  description = "Additional regions to create when enable_additional_regions is true."
   type = list(object({
     region                       = string
     zones                        = list(string)

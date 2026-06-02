@@ -221,7 +221,7 @@ resource "google_compute_global_forwarding_rule" "http" {
 
 # Regional SSL health check for port 8443 (for internal LB)
 resource "google_compute_region_health_check" "proxy_ssl_internal" {
-  count   = var.loadbalancer_type == "internal" ? 1 : 0
+  count   = local.regional_internal_loadbalancer ? 1 : 0
   name    = "${var.runner_name}-proxy-ssl-internal-health"
   project = var.project_id
   region  = var.region
@@ -243,7 +243,7 @@ resource "google_compute_region_health_check" "proxy_ssl_internal" {
 
 # Regional backend service for HTTPS traffic (internal TCP proxy mode)
 resource "google_compute_region_backend_service" "proxy_internal" {
-  count                 = var.loadbalancer_type == "internal" ? 1 : 0
+  count                 = local.regional_internal_loadbalancer ? 1 : 0
   name                  = "${var.runner_name}-proxy-internal-backend"
   project               = var.project_id
   region                = var.region
@@ -287,7 +287,7 @@ resource "google_compute_address" "proxy_internal_ip" {
 
 # Regional TCP target proxy for internal load balancer (TCP proxy mode)
 resource "google_compute_region_target_tcp_proxy" "proxy_internal" {
-  count           = var.loadbalancer_type == "internal" ? 1 : 0
+  count           = local.regional_internal_loadbalancer ? 1 : 0
   name            = "${var.runner_name}-proxy-internal-tcp"
   project         = var.project_id
   region          = var.region
@@ -296,7 +296,7 @@ resource "google_compute_region_target_tcp_proxy" "proxy_internal" {
 
 # Regional forwarding rule for HTTPS (port 443) - internal TCP proxy
 resource "google_compute_forwarding_rule" "https_internal" {
-  count                 = var.loadbalancer_type == "internal" ? 1 : 0
+  count                 = local.regional_internal_loadbalancer ? 1 : 0
   name                  = "${var.runner_name}-proxy-https-internal"
   project               = var.project_id
   region                = var.region
@@ -304,6 +304,87 @@ resource "google_compute_forwarding_rule" "https_internal" {
   load_balancing_scheme = "INTERNAL_MANAGED"
   port_range            = "443"
   target                = google_compute_region_target_tcp_proxy.proxy_internal[0].id
+  ip_address            = google_compute_address.proxy_internal_ip[0].id
+  network               = "projects/${local.vpc_project_id}/global/networks/${var.vpc_name}"
+  subnetwork            = "projects/${local.vpc_project_id}/regions/${var.region}/subnetworks/${var.routable_subnet_name}"
+}
+
+resource "google_compute_health_check" "proxy_ssl_internal_cross_region" {
+  count   = local.internal_cross_region_loadbalancer ? 1 : 0
+  name    = "${var.runner_name}-proxy-ssl-internal-xregion-health"
+  project = var.project_id
+
+  timeout_sec         = 10
+  check_interval_sec  = 10
+  healthy_threshold   = 2
+  unhealthy_threshold = 3
+
+  log_config {
+    enable = true
+  }
+
+  ssl_health_check {
+    port = 8443
+  }
+}
+
+resource "google_compute_backend_service" "proxy_internal_cross_region" {
+  count                 = local.internal_cross_region_loadbalancer ? 1 : 0
+  name                  = "${var.runner_name}-proxy-internal-xregion-backend"
+  project               = var.project_id
+  load_balancing_scheme = "INTERNAL_MANAGED"
+  protocol              = "TCP"
+  timeout_sec           = 86400
+  port_name             = "https"
+
+  backend {
+    group           = google_compute_region_instance_group_manager.proxy.instance_group
+    balancing_mode  = "UTILIZATION"
+    capacity_scaler = 1.0
+  }
+
+  dynamic "backend" {
+    for_each = google_compute_region_instance_group_manager.proxy_additional
+    content {
+      group           = backend.value.instance_group
+      balancing_mode  = "UTILIZATION"
+      capacity_scaler = 1.0
+    }
+  }
+
+  health_checks = [google_compute_health_check.proxy_ssl_internal_cross_region[0].id]
+
+  connection_draining_timeout_sec = var.proxy_vm_config.connection_draining_timeout_sec
+
+  log_config {
+    enable      = true
+    sample_rate = 1.0
+  }
+
+  depends_on = [
+    google_compute_health_check.proxy_ssl_internal_cross_region,
+    google_compute_region_instance_group_manager.proxy,
+    google_compute_region_instance_group_manager.proxy_additional,
+    google_compute_region_autoscaler.proxy,
+    google_compute_region_autoscaler.proxy_additional
+  ]
+}
+
+resource "google_compute_target_tcp_proxy" "proxy_internal_cross_region" {
+  count           = local.internal_cross_region_loadbalancer ? 1 : 0
+  name            = "${var.runner_name}-proxy-internal-xregion-tcp"
+  project         = var.project_id
+  backend_service = google_compute_backend_service.proxy_internal_cross_region[0].id
+}
+
+resource "google_compute_global_forwarding_rule" "https_internal_cross_region" {
+  count                 = local.internal_cross_region_loadbalancer ? 1 : 0
+  name                  = "${var.runner_name}-proxy-https-internal-xregion"
+  project               = var.project_id
+  ip_protocol           = "TCP"
+  load_balancing_scheme = "INTERNAL_MANAGED"
+  port_range            = "443"
+  target                = google_compute_target_tcp_proxy.proxy_internal_cross_region[0].id
   ip_address            = google_compute_address.proxy_internal_ip[0].id
   network               = "projects/${local.vpc_project_id}/global/networks/${var.vpc_name}"
   subnetwork            = "projects/${local.vpc_project_id}/regions/${var.region}/subnetworks/${var.routable_subnet_name}"

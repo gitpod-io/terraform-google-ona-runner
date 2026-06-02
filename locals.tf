@@ -108,7 +108,10 @@ locals {
   environment_vm_sa_name = var.pre_created_service_accounts.environment_vm != "" ? "projects/${var.project_id}/serviceAccounts/${var.pre_created_service_accounts.environment_vm}" : try(google_service_account.environment_vm[0].name, "")
   proxy_vm_sa_name       = var.pre_created_service_accounts.proxy_vm != "" ? "projects/${var.project_id}/serviceAccounts/${var.pre_created_service_accounts.proxy_vm}" : try(google_service_account.proxy_vm[0].name, "")
 
-  additional_proxy_regions = var.loadbalancer_type == "external" ? {
+  internal_cross_region_loadbalancer = var.loadbalancer_type == "internal" && length(var.compute_regions) > 0
+  regional_internal_loadbalancer     = var.loadbalancer_type == "internal" && !local.internal_cross_region_loadbalancer
+
+  additional_proxy_regions = (var.loadbalancer_type == "external" || local.internal_cross_region_loadbalancer) ? {
     for r in var.compute_regions : r.region => {
       region       = r.region
       zones        = r.zones

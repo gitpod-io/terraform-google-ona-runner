@@ -205,27 +205,31 @@ while : ; do
     proxy_group="${proxy_groups[$i]}"
     proxy_region="${proxy_regions[$i]:-region-$i}"
 
-    ssl_health_data="{\"resourceGroupReference\": {\"group\": \"$proxy_group\"}}"
-    if out="$(api_call POST "$PROXY_BACKEND_SSL/getHealth" "$ssl_health_data" 2>/dev/null)"; then
-      healthy_count=$(count_occurrences "$out" '"healthState": "HEALTHY"')
-      if [[ "$healthy_count" -lt "$PROXY_TARGET" ]]; then
-        proxy_all_ok=0
-        echo "⚠️  SSL Backend not fully healthy for $proxy_region ($healthy_count/$PROXY_TARGET)"
+    if [[ -n "${PROXY_BACKEND_SSL:-}" ]]; then
+      ssl_health_data="{\"resourceGroupReference\": {\"group\": \"$proxy_group\"}}"
+      if out="$(api_call POST "$PROXY_BACKEND_SSL/getHealth" "$ssl_health_data" 2>/dev/null)"; then
+        healthy_count=$(count_occurrences "$out" '"healthState": "HEALTHY"')
+        if [[ "$healthy_count" -lt "$PROXY_TARGET" ]]; then
+          proxy_all_ok=0
+          echo "⚠️  SSL Backend not fully healthy for $proxy_region ($healthy_count/$PROXY_TARGET)"
+        fi
+      else
+        echo "ℹ️  SSL backend health check not available for $proxy_region (this is normal for some configurations)"
       fi
-    else
-      echo "ℹ️  SSL backend health check not available for $proxy_region (this is normal for some configurations)"
     fi
-  
+
     # Try to check HTTP backend health
-    http_health_data="{\"resourceGroupReference\": {\"group\": \"$proxy_group\"}}"
-    if out="$(api_call POST "$PROXY_BACKEND_HTTP/getHealth" "$http_health_data" 2>/dev/null)"; then
-      healthy_count=$(count_occurrences "$out" '"healthState": "HEALTHY"')
-      if [[ "$healthy_count" -lt "$PROXY_TARGET" ]]; then
-        proxy_all_ok=0
-        echo "⚠️  HTTP Backend not fully healthy for $proxy_region ($healthy_count/$PROXY_TARGET)"
+    if [[ -n "${PROXY_BACKEND_HTTP:-}" ]]; then
+      http_health_data="{\"resourceGroupReference\": {\"group\": \"$proxy_group\"}}"
+      if out="$(api_call POST "$PROXY_BACKEND_HTTP/getHealth" "$http_health_data" 2>/dev/null)"; then
+        healthy_count=$(count_occurrences "$out" '"healthState": "HEALTHY"')
+        if [[ "$healthy_count" -lt "$PROXY_TARGET" ]]; then
+          proxy_all_ok=0
+          echo "⚠️  HTTP Backend not fully healthy for $proxy_region ($healthy_count/$PROXY_TARGET)"
+        fi
+      else
+        echo "ℹ️  HTTP backend health check not available for $proxy_region (this is normal for some configurations)"
       fi
-    else
-      echo "ℹ️  HTTP backend health check not available for $proxy_region (this is normal for some configurations)"
     fi
   done
 

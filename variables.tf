@@ -134,7 +134,7 @@ variable "zones" {
 }
 
 variable "compute_regions" {
-  description = "Additional regions used for environment VM compute, warm pools, and external load balancer proxy MIGs. Runner, Redis, and other control-plane infrastructure remain in var.region."
+  description = "Additional regions used for environment VM compute, warm pools, external load balancer proxy MIGs, and cross-region internal load balancers. Runner, Redis, and other control-plane infrastructure remain in var.region."
   type = list(object({
     region                       = string
     zones                        = list(string)

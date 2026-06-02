@@ -154,7 +154,7 @@ Check runner status in the Ona dashboard:
 
 ### Additional Compute Regions
 
-Set `enable_additional_regions = true` to create extra regional subnets and Cloud NAT for environment VMs and warm pools. When `loadbalancer_type = "external"`, the same regions also get proxy MIGs attached to the global external load balancer. Runner, Redis, DNS, and other control-plane resources remain in the primary `region`.
+Set `enable_additional_regions = true` to create extra regional subnets and Cloud NAT for environment VMs and warm pools. When `loadbalancer_type = "external"`, the same regions also get proxy MIGs attached to the global external load balancer. When `loadbalancer_type = "internal"`, setting additional regions switches the proxy frontend to a cross-region internal proxy load balancer and creates proxy MIGs in those regions. Runner, Redis, DNS, and other control-plane resources remain in the primary `region`.
 
 ```hcl
 enable_additional_regions = true
@@ -172,7 +172,7 @@ If the regional subnets already exist, leave `enable_additional_regions = false`
 ### Internal Load Balancer
 
 Set `loadbalancer_type = "internal"` for a private runner accessible only within the VPC. The module automatically:
-- Creates a proxy-only subnet (`REGIONAL_MANAGED_PROXY`) required by the internal TCP proxy LB
+- Creates proxy-only subnets (`REGIONAL_MANAGED_PROXY`) required by the internal TCP proxy LB
 - Generates a self-signed TLS certificate and stores it in Secret Manager (unless `certificate_secret_id` is provided or certbot is enabled)
 
 ```hcl

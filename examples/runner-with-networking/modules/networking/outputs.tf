@@ -28,6 +28,14 @@ output "additional_runner_subnet_names" {
   }
 }
 
+output "additional_proxy_subnet_names" {
+  description = "Names of additional proxy-only subnets by region"
+  value = {
+    for region, subnet in google_compute_subnetwork.additional_proxy_subnet :
+    region => subnet.name
+  }
+}
+
 output "router_name" {
   description = "Name of the Cloud Router (if created)"
   value       = google_compute_router.router.name

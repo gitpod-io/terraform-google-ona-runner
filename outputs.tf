@@ -5,7 +5,7 @@ output "proxy_ip" {
 
 output "load_balancer_backend_services" {
   description = "Name of the proxy VM"
-  value       = var.loadbalancer_type == "external" ? google_compute_backend_service.proxy[0].name : google_compute_region_backend_service.proxy_internal[0].name
+  value       = var.loadbalancer_type == "external" ? google_compute_backend_service.proxy[0].name : (local.internal_cross_region_loadbalancer ? google_compute_backend_service.proxy_internal_cross_region[0].name : google_compute_region_backend_service.proxy_internal[0].name)
 }
 
 output "load_balancer_ip" {
