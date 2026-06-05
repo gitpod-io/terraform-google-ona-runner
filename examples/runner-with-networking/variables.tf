@@ -201,3 +201,8 @@ variable "enable_agents" {
   default     = true
 }
 
+variable "enable_cross_zone_restart" {
+  description = "Enable snapshot fallback for stopped dual-disk environments when the original GCP zone has no VM capacity."
+  type        = bool
+  default     = false
+}
