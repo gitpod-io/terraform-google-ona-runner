@@ -714,6 +714,7 @@ write_files:
         --env https_proxy=${HTTPS_PROXY} \
         --env all_proxy=${ALL_PROXY} \
         --env GITPOD_DEVELOPMENT_VERSION=${DEVELOPMENT_VERSION} \
+        --env GITPOD_ENABLE_CROSS_ZONE_RESTART=${ENABLE_CROSS_ZONE_RESTART} \
         --env MANAGED_METRICS_DIRECT_PUSH=true \
         --env GITPOD_TERRAFORM_MODULE_VERSION=${TERRAFORM_MODULE_VERSION} \
         --env no_proxy=${NO_PROXY} \
@@ -761,7 +762,6 @@ write_files:
         --agent-bucket-name=${AGENT_BUCKET_NAME} \
         --runner-assets-bucket-name=${RUNNER_ASSETS_BUCKET_NAME} \
         --mig-warm-pool-enabled=${MIG_WARM_POOL_ENABLED} \
-        --enable-cross-zone-restart=${ENABLE_CROSS_ZONE_RESTART} \
         --port-auth-enabled=true
 
       ExecStopPre=-/bin/bash -c 'timeout 10 /var/lib/gitpod/flush-metrics.sh || true'
