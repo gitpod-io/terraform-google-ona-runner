@@ -123,6 +123,9 @@ compute.disks.createSnapshot
 compute.disks.use
 compute.disks.useReadOnly
 
+`compute.disks.setLabels` is required during VM creation when the runner applies
+labels to initialized boot or data disks, including hyperdisk boost labels.
+
 # Snapshot management
 compute.snapshots.delete
 compute.snapshots.get
