@@ -138,6 +138,7 @@ data "cloudinit_config" "runner" {
       CERTIFICATE_SECRET_ID                = var.certificate_secret_id
       METRICS_SECRET_ID                    = "${var.runner_id}-metrics"
       ENABLE_AGENTS                        = var.enable_agents
+      ENABLE_CROSS_ZONE_RESTART            = var.enable_cross_zone_restart
       AGENT_BUCKET_NAME                    = local.agent_bucket_name
       RUNNER_ASSETS_BUCKET_NAME            = google_storage_bucket.runner_assets.name
       MIG_WARM_POOL_ENABLED                = true

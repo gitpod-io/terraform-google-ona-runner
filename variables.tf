@@ -337,10 +337,15 @@ variable "enable_agents" {
   default     = true
 }
 
+variable "enable_cross_zone_restart" {
+  description = "Enable snapshot fallback for stopped dual-disk environments when the original GCP zone has no VM capacity."
+  type        = bool
+  default     = false
+}
+
 variable "use_authoritative_project_metadata" {
   description = "When true (default), uses authoritative google_compute_project_metadata which manages all project metadata. Set to false to use per-key metadata items that leave other project metadata untouched."
   type        = bool
   default     = true
 }
-
 
