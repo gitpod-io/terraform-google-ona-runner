@@ -144,35 +144,15 @@ Check runner status in the Ona dashboard:
 | `development_version` | Development build version | `""` |
 | `labels` | Labels to apply to resources | `{}` |
 | `proxy_config` | HTTP/HTTPS proxy configuration | `null` |
-| `enable_additional_regions` | Create additional regions for environment VMs, warm pools, and external proxy MIGs | `false` |
-| `additional_regions` | Region, zones, and subnet CIDR for created additional regions | `[]` |
-| `compute_regions` | Additional regions using existing subnet names | `[]` |
 | `loadbalancer_type` | `external` (default) or `internal` | `"external"` |
 | `certificate_secret_id` | Secret Manager cert for internal LB | `""` (auto-created) |
 | `enable_certbot` | Enable Let's Encrypt certificate automation | `false` |
 | `certbot_email` | Email for Let's Encrypt registration | `""` |
 
-### Additional Compute Regions
-
-Set `enable_additional_regions = true` to create extra regional subnets and Cloud NAT for environment VMs and warm pools. When `loadbalancer_type = "external"`, the same regions also get proxy MIGs attached to the global external load balancer. When `loadbalancer_type = "internal"`, setting additional regions switches the proxy frontend to a cross-region internal proxy load balancer and creates proxy MIGs in those regions. Runner, Redis, DNS, and other control-plane resources remain in the primary `region`.
-
-```hcl
-enable_additional_regions = true
-additional_regions = [
-  {
-    region      = "us-east1"
-    zones       = ["us-east1-b", "us-east1-c"]
-    subnet_cidr = "10.1.0.0/24"
-  }
-]
-```
-
-If the regional subnets already exist, leave `enable_additional_regions = false` and set `compute_regions` with the existing subnet names.
-
 ### Internal Load Balancer
 
 Set `loadbalancer_type = "internal"` for a private runner accessible only within the VPC. The module automatically:
-- Creates proxy-only subnets (`REGIONAL_MANAGED_PROXY`) required by the internal TCP proxy LB
+- Creates a proxy-only subnet (`REGIONAL_MANAGED_PROXY`) required by the internal TCP proxy LB
 - Generates a self-signed TLS certificate and stores it in Secret Manager (unless `certificate_secret_id` is provided or certbot is enabled)
 
 ```hcl
@@ -251,7 +231,7 @@ The certificate is stored as JSON:
 
 ## What's Created
 
-- **VPC and Networking**: Complete network setup with compute subnets and firewall rules (includes proxy-only subnet for internal LB)
+- **VPC and Networking**: Complete network setup with subnets and firewall rules (includes proxy-only subnet for internal LB)
 - **DNS Zone**: Managed DNS zone for your domain
 - **SSL Certificate**: Certificate Manager cert (external LB) or self-signed cert in Secret Manager (internal LB)
 - **Runner Infrastructure**: VM instances, load balancer, and all required services
