@@ -217,3 +217,39 @@ jobs:
             --project=gitpod-next-production \
             --message="$PAYLOAD" \
             --attribute="event_type=release.stable,version=${RELEASE_TAG},source=ci_stable_promotion"
+
+      - name: Bump next module version
+        run: |
+          set -euo pipefail
+
+          git config user.name "gitpod-next-automation"
+          git config user.email "gitpod-next-automation@gitpod.io"
+
+          git fetch origin main:refs/remotes/origin/main
+          git checkout -B main origin/main
+
+          CURRENT_VERSION="$(tr -d '[:space:]' < VERSION)"
+          if ! [[ "$CURRENT_VERSION" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::VERSION must be a semantic version like 2.0.3 or v2.0.3, got: $CURRENT_VERSION"
+            exit 1
+          fi
+
+          PREFIX=""
+          NUMERIC_VERSION="$CURRENT_VERSION"
+          if [[ "$NUMERIC_VERSION" == v* ]]; then
+            PREFIX="v"
+            NUMERIC_VERSION="${NUMERIC_VERSION#v}"
+          fi
+
+          IFS=. read -r MAJOR MINOR PATCH <<< "$NUMERIC_VERSION"
+          NEXT_VERSION="${PREFIX}${MAJOR}.${MINOR}.$((PATCH + 1))"
+          printf '%s\n' "$NEXT_VERSION" > VERSION
+
+          git add VERSION
+          if git diff --staged --quiet; then
+            echo "VERSION is already ${NEXT_VERSION}"
+            exit 0
+          fi
+
+          git commit -m "chore: bump Terraform module version to ${NEXT_VERSION}"
+          git push origin HEAD:main --force
