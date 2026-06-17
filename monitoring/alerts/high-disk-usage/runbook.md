@@ -10,6 +10,13 @@
 
 This alert fires when the GCP Runner instance disk usage exceeds 85% for more than 10 minutes. High disk usage can lead to service failures and operational issues.
 
+Runner and proxy VMs run `runner-host-cleanup.timer` daily. The cleanup is best-effort and prunes stopped Docker containers older than 24 hours, unused Docker images/build cache older than 7 days, journal entries beyond 7 days or 1 GB, temporary files older than 1 day, and rotated log files older than 7 days. Docker daemon logs are configured with `json-file` rotation at 50 MB x 5 files per container.
+
+Prometheus is bounded separately:
+
+- Runner VM Prometheus: 15 minute time retention and 100 MB size retention.
+- Proxy VM Prometheus: 7 day time retention and 500 MB size retention.
+
 ## Impact
 
 - Risk of disk full conditions
@@ -48,6 +55,10 @@ gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --project=${PROJECT_ID} \
 # Check Docker space usage
 gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --project=${PROJECT_ID} \
   --command="sudo docker system df"
+
+# Check automatic cleanup status
+gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --project=${PROJECT_ID} \
+  --command="systemctl status runner-host-cleanup.timer --no-pager && journalctl -u runner-host-cleanup.service --since='24 hours ago' --no-pager"
 
 # Check log file sizes
 gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --project=${PROJECT_ID} \
@@ -130,9 +141,6 @@ gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --project=${PROJECT_ID} \
 # Check Prometheus retention settings
 gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --project=${PROJECT_ID} \
   --command="sudo docker logs prometheus 2>&1 | grep retention"
-
-# If needed, reduce Prometheus retention (requires restart)
-# Edit the prometheus service file to change --storage.tsdb.retention.time=7d to a smaller value
 ```
 
 ### 4. Clean Temporary Files
