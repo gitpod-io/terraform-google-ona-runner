@@ -15,7 +15,7 @@ Runner and proxy VMs run `runner-host-cleanup.timer` daily. The cleanup is best-
 Prometheus is bounded separately:
 
 - Runner VM Prometheus: 15 minute time retention and 100 MB size retention.
-- Proxy VM Prometheus: 7 day time retention and 500 MB size retention.
+- Proxy VM Prometheus: 15 minute time retention and 100 MB size retention.
 
 ## Impact
 
