@@ -337,8 +337,8 @@ write_files:
         ${PROMETHEUS_IMAGE} \
         --config.file=/etc/prometheus/prometheus.yml \
         --storage.tsdb.path=/prometheus \
-        --storage.tsdb.retention.time=7d \
-        --storage.tsdb.retention.size=500MB \
+        --storage.tsdb.retention.time=15m \
+        --storage.tsdb.retention.size=100MB \
         --web.console.libraries=/usr/share/prometheus/console_libraries \
         --web.console.templates=/usr/share/prometheus/consoles \
         --web.listen-address=127.0.0.1:9093 \
@@ -610,62 +610,6 @@ write_files:
       OnBootSec=2min
       OnUnitActiveSec=10min
       AccuracySec=1min
-
-      [Install]
-      WantedBy=timers.target
-
-  # Best-effort host cleanup for bounded local disk usage
-  - path: /var/lib/gitpod/runner-host-cleanup.sh
-    permissions: '0755'
-    content: |
-      #!/bin/bash
-      set -u
-
-      log_info() { echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') $*" | systemd-cat -t runner-host-cleanup -p info; }
-      log_warn() { echo "[WARN] $(date '+%Y-%m-%d %H:%M:%S') $*" | systemd-cat -t runner-host-cleanup -p warning; }
-
-      log_info "Starting runner host cleanup"
-
-      if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
-        docker system df 2>&1 | systemd-cat -t runner-host-cleanup -p info || true
-        docker container prune -f --filter until=24h || log_warn "docker container prune failed"
-        docker image prune -af --filter until=168h || log_warn "docker image prune failed"
-        docker builder prune -f --filter until=168h || log_warn "docker builder prune failed"
-        docker system df 2>&1 | systemd-cat -t runner-host-cleanup -p info || true
-      else
-        log_warn "Docker is not available; skipping Docker cleanup"
-      fi
-
-      journalctl --vacuum-time=7d --vacuum-size=1G || log_warn "journal vacuum failed"
-      find /tmp -xdev -mindepth 1 -type f -mtime +1 -delete || log_warn "tmp file cleanup failed"
-      find /var/tmp -xdev -mindepth 1 -type f -mtime +1 -delete || log_warn "var tmp file cleanup failed"
-      find /var/log -xdev -name '*.log.*' -mtime +7 -delete || log_warn "rotated log cleanup failed"
-
-      log_info "Runner host cleanup completed"
-
-  - path: /var/lib/systemd/system/runner-host-cleanup.service
-    permissions: '0644'
-    content: |
-      [Unit]
-      Description=Ona Runner Host Cleanup
-      After=docker.service
-
-      [Service]
-      Type=oneshot
-      ExecStart=/bin/bash /var/lib/gitpod/runner-host-cleanup.sh
-
-  - path: /var/lib/systemd/system/runner-host-cleanup.timer
-    permissions: '0644'
-    content: |
-      [Unit]
-      Description=Run Ona Runner Host Cleanup daily
-      Requires=runner-host-cleanup.service
-
-      [Timer]
-      OnBootSec=30min
-      OnUnitActiveSec=24h
-      RandomizedDelaySec=30min
-      Persistent=true
 
       [Install]
       WantedBy=timers.target
@@ -1108,8 +1052,6 @@ write_files:
       ln -sf /var/lib/systemd/system/prometheus-config-updater.service /etc/systemd/system/prometheus-config-updater.service
       ln -sf /var/lib/systemd/system/prometheus-config-updater.timer /etc/systemd/system/prometheus-config-updater.timer
       ln -sf /var/lib/systemd/system/metrics-audit-receiver.service /etc/systemd/system/metrics-audit-receiver.service
-      ln -sf /var/lib/systemd/system/runner-host-cleanup.service /etc/systemd/system/runner-host-cleanup.service
-      ln -sf /var/lib/systemd/system/runner-host-cleanup.timer /etc/systemd/system/runner-host-cleanup.timer
 %{ if CERTIFICATE_SECRET_ID != "" ~}
       ln -sf /var/lib/systemd/system/cert-refresh.service /etc/systemd/system/cert-refresh.service
       ln -sf /var/lib/systemd/system/cert-refresh.timer /etc/systemd/system/cert-refresh.timer
@@ -1142,7 +1084,6 @@ write_files:
       systemctl enable node-exporter
       systemctl enable prometheus-config-updater.timer
       systemctl enable metrics-audit-receiver.service
-      systemctl enable runner-host-cleanup.timer
 %{ if CERTIFICATE_SECRET_ID != "" ~}
       systemctl enable cert-refresh.timer
 %{ endif ~}
@@ -1159,9 +1100,6 @@ write_files:
       
       echo "Starting Prometheus Config Updater Timer..."
       systemctl start prometheus-config-updater.timer
-
-      echo "Starting Runner Host Cleanup Timer..."
-      systemctl start runner-host-cleanup.timer
 
       echo "Starting Metrics Audit Receiver..."
       systemctl start metrics-audit-receiver.service
