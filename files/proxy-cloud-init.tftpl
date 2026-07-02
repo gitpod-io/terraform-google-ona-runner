@@ -395,7 +395,7 @@ write_files:
         --env NO_PROXY=localhost,127.0.0.1,googleapis.com,metadata.google.internal,${PROXY_DOMAIN} \
         --env no_proxy=localhost,127.0.0.1,googleapis.com,metadata.google.internal,${PROXY_DOMAIN} \
 %{ endif ~}
-        prom/node-exporter:latest \
+        ${NODE_EXPORTER_IMAGE} \
         --path.rootfs=/host \
         --web.listen-address=127.0.0.1:9100 \
         --collector.filesystem.mount-points-exclude='^/(sys|proc|dev|host|etc|rootfs/var/lib/docker/containers|rootfs/var/lib/docker/overlay2|rootfs/run/docker/netns|rootfs/var/lib/docker/aufs)($$|/)'
