@@ -16,6 +16,7 @@ data "cloudinit_config" "proxy" {
       PROXY_DOMAIN              = var.runner_domain
       PROXY_IMAGE_URL           = local.proxy_image
       PROMETHEUS_IMAGE          = local.prometheus_image
+      NODE_EXPORTER_IMAGE       = local.node_exporter_image
       LOADBALANCER_TYPE         = var.loadbalancer_type
       CERTIFICATE_ID            = var.certificate_id
       CERTIFICATE_SECRET_ID     = var.certificate_secret_id

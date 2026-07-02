@@ -348,4 +348,3 @@ variable "use_authoritative_project_metadata" {
   type        = bool
   default     = true
 }
-
