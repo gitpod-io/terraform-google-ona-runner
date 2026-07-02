@@ -29,6 +29,8 @@ locals {
 # Time-based rotation trigger - rotates certificates every 30 days
 resource "time_rotating" "auth_proxy_cert_rotation" {
   rotation_days = 30
+
+  triggers = var.auth_proxy_cert_rotation_triggers
 }
 
 # Create a self-signed certificate for auth proxy internal use

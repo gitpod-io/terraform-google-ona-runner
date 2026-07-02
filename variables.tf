@@ -161,6 +161,12 @@ variable "certificate_secret_read" {
   default     = true
 }
 
+variable "auth_proxy_cert_rotation_triggers" {
+  description = "Map of values that, when changed, force an immediate rotation of the auth-proxy TLS cert outside the routine 30-day cycle. Any change to a value here replaces the `time_rotating.auth_proxy_cert_rotation` resource, which cascades a key + cert + instance-template replacement via `replace_triggered_by`. Useful for incident-driven rotations (e.g. suspected key exposure)."
+  type        = map(string)
+  default     = {}
+}
+
 variable "redis_config" {
   description = "Redis Cluster configuration (cost-optimized defaults: 3 shards, no replicas, small nodes)"
   type = object({
