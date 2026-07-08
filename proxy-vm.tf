@@ -163,9 +163,8 @@ resource "google_compute_region_instance_group_manager" "proxy" {
 
   wait_for_instances = true
 
-  lifecycle {
-    create_before_destroy = true
-  }
+  # distribution_policy_zones is ForceNew in the Google provider, and this MIG
+  # uses a fixed name. create_before_destroy would create a same-name replacement.
 }
 
 # Create autoscaler for the instance group
