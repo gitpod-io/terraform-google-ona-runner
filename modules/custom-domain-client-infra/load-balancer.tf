@@ -10,7 +10,7 @@ resource "google_compute_region_backend_service" "lb_backend" {
   region                = var.region
   protocol              = "HTTP"
   load_balancing_scheme = local.load_balancing_scheme
-  timeout_sec           = 30
+  timeout_sec           = 300
   port_name             = "http"
 
   backend {
