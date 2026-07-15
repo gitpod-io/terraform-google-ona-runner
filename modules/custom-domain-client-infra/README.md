@@ -51,7 +51,6 @@ subnet_name            = "default"
 
 domain_name        = "gitpod.example.com"
 certificate_manager_cert_id = "projects/your-gcp-project-id/regions/us-central1/certificates/gitpod-custom-domain-cert"
-backend_timeout_sec = 300
 ```
 
 ### 2. Deploy Infrastructure
@@ -101,7 +100,6 @@ gcloud compute forwarding-rules describe gitpod-custom-domain-psc \
 | `domain_name` | Custom domain name | string | Yes |
 | `certificate_manager_cert_id` | GCP regional certificate resource ID | string | Yes |
 | `service_name` | Resource name prefix | string | No (default: "gitpod-custom-domain") |
-| `backend_timeout_sec` | Backend service timeout in seconds for requests through the custom domain load balancer | number | No (default: 300) |
 
 ## Outputs
 

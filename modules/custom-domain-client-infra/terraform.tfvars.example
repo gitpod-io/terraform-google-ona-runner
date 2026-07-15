@@ -12,6 +12,3 @@ certificate_manager_cert_id = "projects/your-gcp-project-id/regions/us-central1/
 
 # Optional: Custom service name (default: gitpod-custom-domain)
 # service_name = "my-gitpod"
-
-# Optional: Backend service timeout for custom domain requests (default: 300)
-# backend_timeout_sec = 300

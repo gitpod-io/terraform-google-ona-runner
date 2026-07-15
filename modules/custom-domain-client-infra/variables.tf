@@ -50,14 +50,3 @@ variable "load_balancer_type" {
     error_message = "load_balancer_type must be either 'internal' or 'external'."
   }
 }
-
-variable "backend_timeout_sec" {
-  description = "Backend service timeout in seconds for requests through the custom domain load balancer"
-  type        = number
-  default     = 300
-
-  validation {
-    condition     = var.backend_timeout_sec > 0
-    error_message = "backend_timeout_sec must be greater than 0."
-  }
-}
