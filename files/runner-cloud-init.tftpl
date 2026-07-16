@@ -1167,6 +1167,32 @@ write_files:
       # Create cert directory (avoid duplicate mkdir from earlier in script)
       log_info "Ensuring cert directory exists..."
       mkdir -p /var/lib/gitpod/certs
+
+      bundle_has_certificate_fingerprint() {
+        TRUST_BUNDLE_PATH=$1
+        EXPECTED_FINGERPRINT=$2
+
+        [ -s "$TRUST_BUNDLE_PATH" ] || return 1
+
+        BUNDLE_CERT_DIR=$(mktemp -d)
+        awk -v dir="$BUNDLE_CERT_DIR" '
+          /-----BEGIN CERTIFICATE-----/ { n++; out=sprintf("%s/cert-%04d.pem", dir, n) }
+          n > 0 { print > out }
+          /-----END CERTIFICATE-----/ { close(out) }
+        ' "$TRUST_BUNDLE_PATH"
+
+        for EXISTING_CERT in "$BUNDLE_CERT_DIR"/*.pem; do
+          [ -e "$EXISTING_CERT" ] || continue
+          EXISTING_FINGERPRINT=$(openssl x509 -in "$EXISTING_CERT" -noout -fingerprint -sha256 2>/dev/null | cut -d= -f2 || true)
+          if [ "$EXISTING_FINGERPRINT" = "$EXPECTED_FINGERPRINT" ]; then
+            rm -rf "$BUNDLE_CERT_DIR"
+            return 0
+          fi
+        done
+
+        rm -rf "$BUNDLE_CERT_DIR"
+        return 1
+      }
       
 %{ if CERTIFICATE_SECRET_ID != "" ~}
       # Get access token from metadata service
@@ -1206,57 +1232,37 @@ write_files:
               # Convert JSON-escaped newlines to actual newlines for proper PEM format
               CERTIFICATE_PEM=$(echo "$CERTIFICATE" | sed 's/\\n/\n/g')
               
-              CERTIFICATE_TMP=$(mktemp)
-              printf '%s\n' "$CERTIFICATE_PEM" > "$CERTIFICATE_TMP"
+              PROXY_CERT_TMP=$(mktemp)
+              printf '%s\n' "$CERTIFICATE_PEM" > "$PROXY_CERT_TMP"
 
               # Validate certificate format before using
-              if openssl x509 -in "$CERTIFICATE_TMP" -text -noout > /dev/null 2>&1; then
+              if openssl x509 -in "$PROXY_CERT_TMP" -text -noout > /dev/null 2>&1; then
                 log_info "Certificate validation successful"
 
                 TRUST_BUNDLE=/var/lib/gitpod/certs/gitpod-custom-ca.crt
-                CERTIFICATE_FINGERPRINT=$(openssl x509 -in "$CERTIFICATE_TMP" -noout -fingerprint -sha256 | cut -d= -f2)
-                BUNDLE_HAS_CERT=false
+                PROXY_CERT_FINGERPRINT=$(openssl x509 -in "$PROXY_CERT_TMP" -noout -fingerprint -sha256 | cut -d= -f2)
 
                 if [ -d "$TRUST_BUNDLE" ]; then
                   log_info "Trust bundle path exists as directory, removing"
                   rm -rf "$TRUST_BUNDLE"
                 fi
 
-                if [ -s "$TRUST_BUNDLE" ]; then
-                  BUNDLE_CERT_DIR=$(mktemp -d)
-                  awk -v dir="$BUNDLE_CERT_DIR" '
-                    /-----BEGIN CERTIFICATE-----/ { n++; out=sprintf("%s/cert-%04d.pem", dir, n) }
-                    n > 0 { print > out }
-                    /-----END CERTIFICATE-----/ { close(out) }
-                  ' "$TRUST_BUNDLE"
-
-                  for EXISTING_CERT in "$BUNDLE_CERT_DIR"/*.pem; do
-                    [ -e "$EXISTING_CERT" ] || continue
-                    EXISTING_FINGERPRINT=$(openssl x509 -in "$EXISTING_CERT" -noout -fingerprint -sha256 2>/dev/null | cut -d= -f2 || true)
-                    if [ "$EXISTING_FINGERPRINT" = "$CERTIFICATE_FINGERPRINT" ]; then
-                      BUNDLE_HAS_CERT=true
-                      break
-                    fi
-                  done
-                  rm -rf "$BUNDLE_CERT_DIR"
-                fi
-
-                if [ "$BUNDLE_HAS_CERT" = true ]; then
+                if bundle_has_certificate_fingerprint "$TRUST_BUNDLE" "$PROXY_CERT_FINGERPRINT"; then
                   log_info "Proxy certificate already present in trust bundle"
                 elif [ -s "$TRUST_BUNDLE" ]; then
                   printf '\n' >> "$TRUST_BUNDLE"
-                  cat "$CERTIFICATE_TMP" >> "$TRUST_BUNDLE"
+                  cat "$PROXY_CERT_TMP" >> "$TRUST_BUNDLE"
                   log_info "Proxy certificate appended to existing trust bundle"
                 else
-                  mv "$CERTIFICATE_TMP" "$TRUST_BUNDLE"
-                  CERTIFICATE_TMP=""
+                  mv "$PROXY_CERT_TMP" "$TRUST_BUNDLE"
+                  PROXY_CERT_TMP=""
                   log_info "Proxy certificate written to empty trust bundle location"
                 fi
                 chmod 644 /var/lib/gitpod/certs/gitpod-custom-ca.crt
               else
                 log_error "Certificate validation failed - invalid PEM format after conversion"
               fi
-              rm -f "$CERTIFICATE_TMP"
+              rm -f "$PROXY_CERT_TMP"
             else
               log_error "Failed to extract certificate from secret for CA trust"
             fi
