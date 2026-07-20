@@ -98,6 +98,10 @@ locals {
     var.pre_created_service_accounts.proxy_vm != "",
   ])
 
+  # Preserve external IAM management by default when any service account is
+  # pre-created, while allowing the module to manage IAM as an explicit opt-in.
+  manage_service_account_iam_policies = !local.using_pre_created_service_accounts || var.pre_created_service_accounts.attach_iam_policies
+
   # Service account emails (either created or pre-created) - shared across all files
   runner_sa_email         = var.pre_created_service_accounts.runner != "" ? var.pre_created_service_accounts.runner : try(google_service_account.runner[0].email, "")
   environment_vm_sa_email = var.pre_created_service_accounts.environment_vm != "" ? var.pre_created_service_accounts.environment_vm : try(google_service_account.environment_vm[0].email, "")
