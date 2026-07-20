@@ -20,11 +20,14 @@ This document explains the minimal IAM roles required to deploy the Ona GCP Terr
 - **`roles/cloudkms.admin`** - To create KMS key to encrypt resources
 - **`roles/cloudkms.cryptoKeyEncrypterDecrypter`** - To encrypt and decrypt using this KMS key
 
-### High-Privilege Operations (Not needed if using pre-created service accounts)
-- **`roles/iam.serviceAccountAdmin`** - Creates service accounts *(skip if using `pre_created_service_accounts`)*
-- **`roles/iam.roleAdmin`** - Creates custom IAM roles *(skip if using `pre_created_service_accounts`)*
-- **`roles/iam.securityAdmin`** - Sets IAM policies and audit configurations *(skip if using `pre_created_service_accounts`)*
-- **`roles/serviceusage.serviceUsageAdmin`** - Enables required GCP APIs *(skip if using `pre_created_service_accounts`)*
+### High-Privilege Operations
+
+Pre-created service accounts avoid service-account creation permissions. When `pre_created_service_accounts.attach_iam_policies` is `false`, the IAM team also manages the custom roles and service-account policies. Set it to `true` only when the Terraform deployer has the permissions represented by these roles:
+
+- **`roles/iam.serviceAccountAdmin`** - Creates service accounts and manages their IAM policies
+- **`roles/iam.roleAdmin`** - Creates custom IAM roles
+- **`roles/iam.securityAdmin`** - Sets IAM policies and audit configurations
+- **`roles/serviceusage.serviceUsageAdmin`** - Enables required GCP APIs
 
 ### Example-Specific Permissions
 Some examples require additional permissions beyond the core set:
@@ -64,8 +67,9 @@ roles=(
 )
     
 
-# High-privilege roles (only needed if NOT using pre-created service accounts)
-if [[ "${USE_PRE_CREATED_SA}" != "true" ]]; then
+# High-privilege roles are needed when Terraform creates service accounts or
+# manages IAM policies for pre-created service accounts.
+if [[ "${USE_PRE_CREATED_SA}" != "true" || "${ATTACH_IAM_POLICIES}" == "true" ]]; then
     roles+=(
         "roles/iam.serviceAccountAdmin"
         "roles/iam.roleAdmin"
@@ -422,7 +426,7 @@ terraform plan -var-file="terraform.tfvars"
 terraform apply -var-file="terraform.tfvars"
 ```
 
-**Note**: If using pre-created service accounts, configure the `pre_created_service_accounts` variable in your `terraform.tfvars` file (see README.md for details).
+If you use pre-created service accounts, configure `pre_created_service_accounts` in `terraform.tfvars`. Set its `attach_iam_policies` field to match the deployer roles assigned above. See [IAM Configuration](iam.md#service-accounts-pre-creation-recommended) for an example.
 
 ## Backend Bucket Permissions
 

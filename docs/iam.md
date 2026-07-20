@@ -86,7 +86,7 @@ done
 
 **⚠️ These custom roles require high-privilege access to create and should be handled by IAM teams.**
 
-When using pre-created service accounts, these roles must be created beforehand and assigned to the service accounts.
+When using pre-created service accounts, these roles must be created beforehand and assigned to the service accounts unless `attach_iam_policies` is `true`.
 
 ### 1. Runner Custom Role
 - **Role ID**: `{runner_name_underscore}_runner` (e.g., `gcp_2_runner`)
@@ -296,6 +296,21 @@ All Google service identities receive:
 ## Service Accounts (Pre-Creation Recommended)
 
 **For enterprise deployments, it's recommended that IAM teams pre-create these service accounts and provide them to the Terraform module via the `pre_created_service_accounts` variable. This allows deployers to work with limited permissions.**
+
+Set `attach_iam_policies` to `true` if the IAM team creates only the service accounts and Terraform should manage their required IAM configuration:
+
+```hcl
+pre_created_service_accounts = {
+  runner              = "ona-runner@your-project.iam.gserviceaccount.com"
+  environment_vm      = "ona-environment@your-project.iam.gserviceaccount.com"
+  proxy_vm            = "ona-proxy@your-project.iam.gserviceaccount.com"
+  attach_iam_policies = true
+}
+```
+
+The default is `false`. In this mode, the IAM team must manage the custom roles, general project-level grants, and `roles/iam.serviceAccountUser` bindings. Terraform continues to manage the resource access needed for infrastructure it creates, such as runner secrets and storage buckets.
+
+When `attach_iam_policies` is `true`, Terraform creates the custom roles and attaches the required project-level and service-account policies. It does not create any supplied service account. The Terraform deployer needs the high-privilege roles listed in [Terraform Service Account Permissions](terraform_service_account_permissions.md).
 
 If not pre-created, the module will create the following service accounts:
 

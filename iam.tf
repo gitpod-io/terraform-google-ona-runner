@@ -105,7 +105,7 @@ resource "google_service_account" "runner" {
 
 # Custom role with minimal compute permissions for runner
 resource "google_project_iam_custom_role" "runner" {
-  count = var.pre_created_service_accounts.runner == "" ? 1 : 0
+  count = var.pre_created_service_accounts.runner == "" || var.pre_created_service_accounts.attach_iam_policies ? 1 : 0
 
   role_id     = "${replace(var.runner_name, "-", "_")}_runner"
   title       = "Ona Runner"
@@ -265,10 +265,10 @@ resource "google_project_iam_custom_role" "runner" {
 
 # Bind custom role to runner control plane
 resource "google_project_iam_member" "runner_cp_custom_role" {
-  count = !local.using_pre_created_service_accounts && local.runner_sa_email != "" ? 1 : 0
+  count = local.manage_service_account_iam_policies && local.runner_sa_email != "" ? 1 : 0
 
   project = var.project_id
-  role    = var.pre_created_service_accounts.runner == "" ? google_project_iam_custom_role.runner[0].id : "projects/${var.project_id}/roles/${replace(var.runner_name, "-", "_")}_runner"
+  role    = google_project_iam_custom_role.runner[0].id
   member  = "serviceAccount:${local.runner_sa_email}"
 
   depends_on = [
@@ -280,7 +280,7 @@ resource "google_project_iam_member" "runner_cp_custom_role" {
 # Essential permissions for runner control plane (consolidated logging and monitoring below)
 
 resource "google_project_iam_member" "runner_cp_trace" {
-  count = !local.using_pre_created_service_accounts && local.runner_sa_email != "" ? 1 : 0
+  count = local.manage_service_account_iam_policies && local.runner_sa_email != "" ? 1 : 0
 
   project = var.project_id
   role    = "roles/cloudtrace.agent"
@@ -289,7 +289,7 @@ resource "google_project_iam_member" "runner_cp_trace" {
 
 # Redis access for IAM authentication and state management
 resource "google_project_iam_member" "runner_cp_redis_editor" {
-  count   = !local.using_pre_created_service_accounts && local.runner_sa_email != "" ? 1 : 0
+  count   = local.manage_service_account_iam_policies && local.runner_sa_email != "" ? 1 : 0
   project = var.project_id
   role    = "roles/redis.editor" # Can read/write but not manage instance
   member  = "serviceAccount:${local.runner_sa_email}"
@@ -297,7 +297,7 @@ resource "google_project_iam_member" "runner_cp_redis_editor" {
 
 # Additional permission needed for IAM authentication to Redis Cluster
 resource "google_project_iam_member" "runner_cp_redis_db_connection" {
-  count   = !local.using_pre_created_service_accounts && local.runner_sa_email != "" ? 1 : 0
+  count   = local.manage_service_account_iam_policies && local.runner_sa_email != "" ? 1 : 0
   project = var.project_id
   role    = "roles/redis.dbConnectionUser" # Required for IAM authentication
   member  = "serviceAccount:${local.runner_sa_email}"
@@ -305,7 +305,7 @@ resource "google_project_iam_member" "runner_cp_redis_db_connection" {
 
 # Certificate Manager viewer role for external LB certificate access
 resource "google_project_iam_member" "runner_cp_certificate_manager" {
-  count   = !local.using_pre_created_service_accounts && local.runner_sa_email != "" && var.loadbalancer_type == "external" ? 1 : 0
+  count   = local.manage_service_account_iam_policies && local.runner_sa_email != "" && var.loadbalancer_type == "external" ? 1 : 0
   project = var.project_id
   role    = "roles/certificatemanager.viewer"
   member  = "serviceAccount:${local.runner_sa_email}"
@@ -353,7 +353,7 @@ resource "google_service_account" "environment_vm" {
 
 # Minimal permissions for environment VMs
 resource "google_project_iam_member" "env_vm_artifact_registry" {
-  count   = !local.using_pre_created_service_accounts && local.environment_vm_sa_email != "" ? 1 : 0
+  count   = local.manage_service_account_iam_policies && local.environment_vm_sa_email != "" ? 1 : 0
   project = var.project_id
   role    = "roles/artifactregistry.reader"
   member  = "serviceAccount:${local.environment_vm_sa_email}"
@@ -455,14 +455,14 @@ resource "google_secret_manager_secret_iam_member" "proxy_metrics_access" {
 
 # Logging permissions - individual members for each service account
 resource "google_project_iam_member" "runner_cp_logging" {
-  count   = !local.using_pre_created_service_accounts && local.runner_sa_email != "" ? 1 : 0
+  count   = local.manage_service_account_iam_policies && local.runner_sa_email != "" ? 1 : 0
   project = var.project_id
   role    = "roles/logging.logWriter"
   member  = "serviceAccount:${local.runner_sa_email}"
 }
 
 resource "google_project_iam_member" "env_vm_logging" {
-  count   = !local.using_pre_created_service_accounts && local.environment_vm_sa_email != "" ? 1 : 0
+  count   = local.manage_service_account_iam_policies && local.environment_vm_sa_email != "" ? 1 : 0
   project = var.project_id
   role    = "roles/logging.logWriter"
   member  = "serviceAccount:${local.environment_vm_sa_email}"
@@ -472,14 +472,14 @@ resource "google_project_iam_member" "env_vm_logging" {
 
 # Monitoring permissions - individual members for each service account
 resource "google_project_iam_member" "runner_cp_monitoring" {
-  count   = !local.using_pre_created_service_accounts && local.runner_sa_email != "" ? 1 : 0
+  count   = local.manage_service_account_iam_policies && local.runner_sa_email != "" ? 1 : 0
   project = var.project_id
   role    = "roles/monitoring.metricWriter"
   member  = "serviceAccount:${local.runner_sa_email}"
 }
 
 resource "google_project_iam_member" "env_vm_monitoring" {
-  count   = !local.using_pre_created_service_accounts && local.environment_vm_sa_email != "" ? 1 : 0
+  count   = local.manage_service_account_iam_policies && local.environment_vm_sa_email != "" ? 1 : 0
   project = var.project_id
   role    = "roles/monitoring.metricWriter"
   member  = "serviceAccount:${local.environment_vm_sa_email}"
@@ -497,7 +497,7 @@ resource "google_service_account" "proxy_vm" {
 
 # Custom role with minimal permissions for proxy VM
 resource "google_project_iam_custom_role" "proxy_vm" {
-  count = var.pre_created_service_accounts.proxy_vm == "" ? 1 : 0
+  count = var.pre_created_service_accounts.proxy_vm == "" || var.pre_created_service_accounts.attach_iam_policies ? 1 : 0
 
   role_id     = "${replace(var.runner_name, "-", "_")}_proxy_vm"
   title       = "Ona Proxy VM Minimal"
@@ -524,14 +524,14 @@ resource "google_project_iam_custom_role" "proxy_vm" {
 
 # IAM permissions for proxy VM service
 resource "google_project_iam_member" "proxy_vm_logging" {
-  count   = !local.using_pre_created_service_accounts && local.proxy_vm_sa_email != "" ? 1 : 0
+  count   = local.manage_service_account_iam_policies && local.proxy_vm_sa_email != "" ? 1 : 0
   project = var.project_id
   role    = "roles/logging.logWriter"
   member  = "serviceAccount:${local.proxy_vm_sa_email}"
 }
 
 resource "google_project_iam_member" "proxy_vm_monitoring" {
-  count   = !local.using_pre_created_service_accounts && local.proxy_vm_sa_email != "" ? 1 : 0
+  count   = local.manage_service_account_iam_policies && local.proxy_vm_sa_email != "" ? 1 : 0
   project = var.project_id
   role    = "roles/monitoring.metricWriter"
   member  = "serviceAccount:${local.proxy_vm_sa_email}"
@@ -539,9 +539,9 @@ resource "google_project_iam_member" "proxy_vm_monitoring" {
 
 # ✅ SECURE: Custom role with minimal permissions instead of compute.instanceAdmin.v1
 resource "google_project_iam_member" "proxy_vm_compute" {
-  count   = !local.using_pre_created_service_accounts && local.proxy_vm_sa_email != "" ? 1 : 0
+  count   = local.manage_service_account_iam_policies && local.proxy_vm_sa_email != "" ? 1 : 0
   project = var.project_id
-  role    = var.pre_created_service_accounts.proxy_vm == "" ? google_project_iam_custom_role.proxy_vm[0].id : "projects/${var.project_id}/roles/${replace(var.runner_name, "-", "_")}_proxy_vm"
+  role    = google_project_iam_custom_role.proxy_vm[0].id
   member  = "serviceAccount:${local.proxy_vm_sa_email}"
 
   depends_on = [
@@ -551,14 +551,14 @@ resource "google_project_iam_member" "proxy_vm_compute" {
 }
 
 resource "google_project_iam_member" "proxy_vm_artifact_registry" {
-  count   = !local.using_pre_created_service_accounts && local.proxy_vm_sa_email != "" ? 1 : 0
+  count   = local.manage_service_account_iam_policies && local.proxy_vm_sa_email != "" ? 1 : 0
   project = var.project_id
   role    = "roles/artifactregistry.reader"
   member  = "serviceAccount:${local.proxy_vm_sa_email}"
 }
 
 resource "google_project_iam_member" "proxy_vm_cloud_run" {
-  count   = !local.using_pre_created_service_accounts && local.proxy_vm_sa_email != "" ? 1 : 0
+  count   = local.manage_service_account_iam_policies && local.proxy_vm_sa_email != "" ? 1 : 0
   project = var.project_id
   role    = "roles/run.viewer"
   member  = "serviceAccount:${local.proxy_vm_sa_email}"
@@ -566,7 +566,7 @@ resource "google_project_iam_member" "proxy_vm_cloud_run" {
 
 # Certificate Manager viewer role for external LB certificate access
 resource "google_project_iam_member" "proxy_vm_certificate_manager" {
-  count   = !local.using_pre_created_service_accounts && local.proxy_vm_sa_email != "" && var.loadbalancer_type == "external" ? 1 : 0
+  count   = local.manage_service_account_iam_policies && local.proxy_vm_sa_email != "" && var.loadbalancer_type == "external" ? 1 : 0
   project = var.project_id
   role    = "roles/certificatemanager.viewer"
   member  = "serviceAccount:${local.proxy_vm_sa_email}"
@@ -703,12 +703,11 @@ resource "google_kms_crypto_key_iam_member" "proxy_vm_kms_access" {
 # Scoped per-SA so the runner cannot impersonate unrelated service
 # accounts in the project.
 #
-# When pre_created_service_accounts is set the operator is responsible
-# for granting roles/iam.serviceAccountUser on the relevant SAs to the
-# runner SA out of band; the module does not manage IAM on SAs it did
-# not create.
+# When pre_created_service_accounts is set, these bindings are managed only
+# when attach_iam_policies is explicitly enabled. Otherwise, the operator must
+# grant roles/iam.serviceAccountUser on the relevant SAs out of band.
 resource "google_service_account_iam_member" "runner_actas_runner" {
-  count = !local.using_pre_created_service_accounts && local.runner_sa_email != "" ? 1 : 0
+  count = local.manage_service_account_iam_policies && local.runner_sa_email != "" ? 1 : 0
 
   service_account_id = local.runner_sa_name
   role               = "roles/iam.serviceAccountUser"
@@ -718,7 +717,7 @@ resource "google_service_account_iam_member" "runner_actas_runner" {
 }
 
 resource "google_service_account_iam_member" "runner_actas_environment_vm" {
-  count = !local.using_pre_created_service_accounts && local.runner_sa_email != "" && local.environment_vm_sa_email != "" ? 1 : 0
+  count = local.manage_service_account_iam_policies && local.runner_sa_email != "" && local.environment_vm_sa_email != "" ? 1 : 0
 
   service_account_id = local.environment_vm_sa_name
   role               = "roles/iam.serviceAccountUser"
@@ -731,7 +730,7 @@ resource "google_service_account_iam_member" "runner_actas_environment_vm" {
 }
 
 resource "google_service_account_iam_member" "runner_actas_proxy_vm" {
-  count = !local.using_pre_created_service_accounts && local.runner_sa_email != "" && local.proxy_vm_sa_email != "" ? 1 : 0
+  count = local.manage_service_account_iam_policies && local.runner_sa_email != "" && local.proxy_vm_sa_email != "" ? 1 : 0
 
   service_account_id = local.proxy_vm_sa_name
   role               = "roles/iam.serviceAccountUser"
