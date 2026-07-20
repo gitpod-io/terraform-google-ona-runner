@@ -9,6 +9,12 @@ variable "region" {
   type        = string
 }
 
+variable "service_attachment_uri" {
+  description = "Ona relay PSC service attachment URI"
+  type        = string
+  default     = "https://www.googleapis.com/compute/v1/projects/gitpod-next-production/regions/us-central1/serviceAttachments/gitpod-custom-domain-relay-gcp-psc"
+}
+
 # Network Configuration
 variable "vpc_network" {
   description = "VPC network name"

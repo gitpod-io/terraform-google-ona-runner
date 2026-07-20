@@ -46,6 +46,9 @@ Edit `terraform.tfvars` with your values:
 project_id = "your-gcp-project-id"
 region     = "us-central1"
 
+# Override this value when connecting to a non-production relay.
+service_attachment_uri = "https://www.googleapis.com/compute/v1/projects/relay-project/regions/us-central1/serviceAttachments/relay-service"
+
 vpc_network            = "default"
 subnet_name            = "default"
 
@@ -95,6 +98,7 @@ gcloud compute forwarding-rules describe gitpod-custom-domain-psc \
 |------|-------------|------|----------|
 | `project_id` | GCP project ID | string | Yes |
 | `region` | GCP region | string | Yes |
+| `service_attachment_uri` | Ona relay PSC service attachment URI | string | No (production relay) |
 | `vpc_network` | VPC network name | string | No (default: "default") |
 | `subnet_name` | Subnet name | string | No (default: "default") |
 | `domain_name` | Custom domain name | string | Yes |

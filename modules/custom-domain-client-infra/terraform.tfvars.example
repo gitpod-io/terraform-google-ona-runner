@@ -2,6 +2,9 @@
 project_id = "your-gcp-project-id"
 region     = "us-central1"
 
+# Optional: Override for non-production relay deployments
+# service_attachment_uri = "https://www.googleapis.com/compute/v1/projects/relay-project/regions/us-central1/serviceAttachments/relay-service"
+
 # Network Configuration
 vpc_network = "default"
 subnet_name = "default"
