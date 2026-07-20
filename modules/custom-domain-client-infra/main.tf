@@ -15,8 +15,7 @@ locals {
     app       = "gitpod"
     component = "custom-domain-client"
   }
-  # Ona PSC service attachment URI for production
-  gitpod_service_attachment_uri = "https://www.googleapis.com/compute/v1/projects/gitpod-next-production/regions/us-central1/serviceAttachments/gitpod-custom-domain-relay-gcp-psc"
+  gitpod_service_attachment_uri = var.service_attachment_uri
 }
 
 # Reserve internal IP address for PSC endpoint
