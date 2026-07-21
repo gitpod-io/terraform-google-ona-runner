@@ -485,6 +485,13 @@ write_files:
       # Build remote_write configuration from available targets
       HAS_REMOTE_WRITE=false
 
+      # Prometheus defaults retry_on_http_429 to false, dropping rate-limited
+      # batches instead of honoring Retry-After. Enable it on every target.
+      append_queue_config() {
+          echo "    queue_config:" >> /tmp/prometheus.yml.new
+          echo "      retry_on_http_429: true" >> /tmp/prometheus.yml.new
+      }
+
       # Remove the placeholder line first
       sed -i '/{{REMOTE_WRITE_CONFIG}}/d' /tmp/prometheus.yml.new
 
@@ -502,6 +509,7 @@ write_files:
               echo "      username: $REMOTE_USER" >> /tmp/prometheus.yml.new
               echo "      password: $REMOTE_PASSWORD" >> /tmp/prometheus.yml.new
           fi
+          append_queue_config
       fi
 
       # Build allowlist regex once — reused by both managed and local targets.
@@ -539,12 +547,14 @@ write_files:
           echo "      type: Bearer" >> /tmp/prometheus.yml.new
           echo "      credentials: $MANAGED_BEARER_TOKEN" >> /tmp/prometheus.yml.new
           append_allowlist_relabel
+          append_queue_config
 
           # Audit: send the same filtered payload to the local audit receiver
           # which persists each write to GCS for customer audit trails.
           log "Adding metrics audit receiver remote write target"
           echo "  - url: http://127.0.0.1:9095/write" >> /tmp/prometheus.yml.new
           append_allowlist_relabel
+          append_queue_config
       elif [ -n "$LOCAL_REMOTE_WRITE_URL" ]; then
           # Fallback: local remote write target for managed metrics pipeline.
           log "Adding local remote write target: $LOCAL_REMOTE_WRITE_URL"
@@ -555,6 +565,7 @@ write_files:
           fi
           echo "  - url: $LOCAL_REMOTE_WRITE_URL" >> /tmp/prometheus.yml.new
           append_allowlist_relabel
+          append_queue_config
       fi
 
       # Check if configuration changed
