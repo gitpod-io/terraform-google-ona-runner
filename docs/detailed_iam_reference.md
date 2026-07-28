@@ -40,6 +40,14 @@ The module creates 3 service accounts:
 
 **Security Mitigation**: While `cloud-platform` is broad, access is limited by IAM permissions. The runner's custom IAM role restricts actual capabilities to only necessary operations.
 
+The runner secrets key has additional resource-level bindings:
+
+- `roles/secretmanager.secretAccessor` to read the current key version.
+- `roles/secretmanager.secretVersionAdder` to create the first version during migration.
+
+Terraform owns the secret and these bindings, while the runner owns the secret
+version. The module does not place the key material in Terraform state.
+
 **IAM Roles**:
 - **Custom Role**: `{runner_name}_runner` - Minimal permissions for infrastructure management (detailed below)
 - `roles/logging.logWriter` - Write access to Cloud Logging for operational logs

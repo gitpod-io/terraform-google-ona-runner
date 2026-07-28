@@ -641,6 +641,7 @@ write_files:
       VPC_PROJECT_ID=${VPC_PROJECT_ID}
       SUBNET_NAME=${SUBNET_NAME}
       RUNNER_TOKEN_SECRET=${RUNNER_TOKEN_SECRET}
+      RUNNER_SECRETS_KEY_SECRET=${RUNNER_SECRETS_KEY_SECRET}
       REDIS_CREDENTIALS_SECRET=${REDIS_CREDENTIALS_SECRET}
       SERVICE_ACCOUNT_EMAIL=${SERVICE_ACCOUNT_EMAIL}
       ENVIRONMENT_VM_SERVICE_ACCOUNT_EMAIL=${ENVIRONMENT_VM_SERVICE_ACCOUNT_EMAIL}
@@ -778,6 +779,7 @@ write_files:
         --vpc-project-id=${VPC_PROJECT_ID} \
         --subnet-name=${SUBNET_NAME} \
         --runner-token-secret=${RUNNER_TOKEN_SECRET} \
+        --runner-secrets-key-secret=${RUNNER_SECRETS_KEY_SECRET} \
         --redis-credentials-secret=${REDIS_CREDENTIALS_SECRET} \
         --redis-cluster-mode=true \
         --service-account-email=${SERVICE_ACCOUNT_EMAIL} \

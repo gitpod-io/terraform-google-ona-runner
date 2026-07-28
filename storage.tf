@@ -75,6 +75,41 @@ resource "google_secret_manager_secret_version" "redis_auth" {
   })
 }
 
+# Terraform owns the runner key secret container, while the runner owns its
+# versions. Keeping versions out of Terraform state prevents apply or destroy
+# operations from replacing or deleting the key material.
+resource "google_secret_manager_secret" "runner_secrets_key" {
+  project   = var.project_id
+  secret_id = "${var.runner_id}-runner-secrets-key"
+
+  deletion_protection = var.runner_secrets_key_deletion_protection
+  version_destroy_ttl = "2592000s"
+
+  labels = merge(var.labels, {
+    gitpod-component = "runner-secrets-key"
+    managed-by       = "terraform"
+  })
+
+  replication {
+    dynamic "user_managed" {
+      for_each = local.kms_key_name != null ? [1] : []
+      content {
+        replicas {
+          location = var.region
+          customer_managed_encryption {
+            kms_key_name = local.kms_key_name
+          }
+        }
+      }
+    }
+
+    dynamic "auto" {
+      for_each = local.kms_key_name == null ? [1] : []
+      content {}
+    }
+  }
+}
+
 # Metrics configuration secret for Prometheus
 resource "google_secret_manager_secret" "metrics" {
   project   = var.project_id

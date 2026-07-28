@@ -26,6 +26,17 @@ for setup instructions, configuration options, and troubleshooting.
 The [`runner-with-networking`](./examples/runner-with-networking/) example
 provides a full infrastructure setup including VPC, DNS, and certificates.
 
+## Runner secrets key lifecycle
+
+Terraform creates the Secret Manager secret and its IAM policy, but it does not
+manage a secret version for the runner secrets key. The runner writes the first
+version, verifies that Secret Manager returns the same key, and then removes the
+legacy copy from Redis. This keeps the key material out of Terraform state.
+
+Deletion protection is enabled by default. To intentionally destroy the module,
+set `runner_secrets_key_deletion_protection = false` and apply that change before
+running `terraform destroy`. Secret-version destruction is delayed for 30 days.
+
 ## Releases
 
 New stable releases are published roughly once a week. To get notified when a

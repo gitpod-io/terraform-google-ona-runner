@@ -117,6 +117,7 @@ data "cloudinit_config" "runner" {
       VPC_PROJECT_ID                       = local.vpc_project_id
       SUBNET_NAME                          = var.runner_subnet_name
       RUNNER_TOKEN_SECRET                  = google_secret_manager_secret.runner_token.secret_id
+      RUNNER_SECRETS_KEY_SECRET            = google_secret_manager_secret.runner_secrets_key.secret_id
       REDIS_CREDENTIALS_SECRET             = google_secret_manager_secret.redis_auth.secret_id
       SERVICE_ACCOUNT_EMAIL                = local.runner_sa_email
       ENVIRONMENT_VM_SERVICE_ACCOUNT_EMAIL = local.environment_vm_sa_email
@@ -309,8 +310,12 @@ resource "google_compute_region_instance_group_manager" "runner" {
 
   wait_for_instances = true
 
-  # Ensure Redis cache is ready before creating runner instances
-  depends_on = [google_redis_cluster.cache]
+  # Ensure storage and secret permissions are ready before runner instances start.
+  depends_on = [
+    google_redis_cluster.cache,
+    google_secret_manager_secret_iam_member.runner_secrets_key_access,
+    google_secret_manager_secret_iam_member.runner_secrets_key_version_adder,
+  ]
 
   lifecycle {
     create_before_destroy = true
