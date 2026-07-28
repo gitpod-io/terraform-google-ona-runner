@@ -139,7 +139,6 @@ Check runner status in the Ona dashboard:
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `api_endpoint` | Ona API endpoint | `"https://app.gitpod.io/api"` |
-| `runner_secrets_key_deletion_protection` | Protect the runner secrets key from deletion; disable and apply before destroy | `true` |
 | `certificate_id` | Existing certificate ID | `""` (auto-created) |
 | `ssh_port` | SSH port for environments | `29222` |
 | `development_version` | Development build version | `""` |

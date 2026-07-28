@@ -33,9 +33,9 @@ manage a secret version for the runner secrets key. The runner writes the first
 version, verifies that Secret Manager returns the same key, and then removes the
 legacy copy from Redis. This keeps the key material out of Terraform state.
 
-Deletion protection is enabled by default. To intentionally destroy the module,
-set `runner_secrets_key_deletion_protection = false` and apply that change before
-running `terraform destroy`. Secret-version destruction is delayed for 30 days.
+Subsequent Terraform applies leave runner-created versions unchanged. A
+`terraform destroy` removes the secret and its versions with the rest of the
+runner infrastructure.
 
 ## Releases
 

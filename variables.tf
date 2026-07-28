@@ -30,12 +30,6 @@ variable "runner_token" {
   sensitive   = true
 }
 
-variable "runner_secrets_key_deletion_protection" {
-  description = "Protect the runner secrets key from deletion. To intentionally destroy the module, set this to false and apply before running terraform destroy."
-  type        = bool
-  default     = true
-}
-
 variable "vpc_name" {
   description = "The name of the VPC"
   type        = string

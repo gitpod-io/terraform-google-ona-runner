@@ -76,14 +76,11 @@ resource "google_secret_manager_secret_version" "redis_auth" {
 }
 
 # Terraform owns the runner key secret container, while the runner owns its
-# versions. Keeping versions out of Terraform state prevents apply or destroy
-# operations from replacing or deleting the key material.
+# versions. Keeping versions out of Terraform state means subsequent applies
+# leave application-created versions unchanged.
 resource "google_secret_manager_secret" "runner_secrets_key" {
   project   = var.project_id
   secret_id = "${var.runner_id}-runner-secrets-key"
-
-  deletion_protection = var.runner_secrets_key_deletion_protection
-  version_destroy_ttl = "2592000s"
 
   labels = merge(var.labels, {
     gitpod-component = "runner-secrets-key"

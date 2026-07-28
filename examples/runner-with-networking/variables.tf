@@ -50,12 +50,6 @@ variable "api_endpoint" {
   default     = "https://app.gitpod.io/api"
 }
 
-variable "runner_secrets_key_deletion_protection" {
-  description = "Protect the runner secrets key from deletion. Set to false and apply before intentionally destroying the example."
-  type        = bool
-  default     = true
-}
-
 variable "certificate_id" {
   description = "ID of the certificate in GCP resource format: projects/{project}/locations/{location}/certificates/{name}"
   type        = string
