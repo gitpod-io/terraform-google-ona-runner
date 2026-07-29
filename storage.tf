@@ -82,6 +82,9 @@ resource "google_secret_manager_secret" "runner_secrets_key" {
   project   = var.project_id
   secret_id = "${var.runner_id}-runner-secrets-key"
 
+  # Keep explicitly destroyed versions recoverable for 30 days.
+  version_destroy_ttl = "2592000s"
+
   labels = merge(var.labels, {
     gitpod-component = "runner-secrets-key"
     managed-by       = "terraform"
