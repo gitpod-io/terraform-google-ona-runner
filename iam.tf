@@ -369,6 +369,22 @@ resource "google_secret_manager_secret_iam_member" "runner_cp_redis_secret_acces
   member    = "serviceAccount:${local.runner_sa_email}"
 }
 
+# The runner reads the current key and creates the first version during
+# migration. Terraform intentionally never manages versions of this secret.
+resource "google_secret_manager_secret_iam_member" "runner_secrets_key_access" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.runner_secrets_key.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${local.runner_sa_email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "runner_secrets_key_version_adder" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.runner_secrets_key.secret_id
+  role      = "roles/secretmanager.secretVersionAdder"
+  member    = "serviceAccount:${local.runner_sa_email}"
+}
+
 # Allow runner to destroy secret versions (for cost optimization)
 resource "google_project_iam_member" "runner_secret_version_manager" {
   project = var.project_id
