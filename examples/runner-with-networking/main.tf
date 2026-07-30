@@ -147,13 +147,16 @@ module "runner" {
   vpc_name           = local.vpc_name
   runner_subnet_name = local.runner_subnet_name
 
-  development_version = var.development_version
-  runner_id           = var.runner_id
-  runner_token        = var.runner_token
-  zones               = var.zones
-  runner_domain       = var.runner_domain
-  proxy_config        = var.proxy_config
-  ca_certificate      = var.ca_certificate
+  development_version         = var.development_version
+  runner_id                   = var.runner_id
+  runner_token                = var.runner_token
+  runner_token_ephemeral      = var.runner_token_ephemeral
+  runner_token_write_mode     = var.runner_token_write_mode
+  runner_token_secret_version = var.runner_token_secret_version
+  zones                       = var.zones
+  runner_domain               = var.runner_domain
+  proxy_config                = var.proxy_config
+  ca_certificate              = var.ca_certificate
 
   ssh_port     = var.ssh_port
   api_endpoint = var.api_endpoint

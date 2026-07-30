@@ -25,9 +25,35 @@ variable "runner_domain" {
 }
 
 variable "runner_token" {
-  description = "The runner token (from Ona dashboard)"
+  description = "Runner join token written to Secret Manager."
   type        = string
   sensitive   = true
+}
+
+variable "runner_token_ephemeral" {
+  description = "Ephemeral runner join token used only when runner_token_write_mode is \"write_only\"."
+  type        = string
+  sensitive   = true
+  ephemeral   = true
+  default     = null
+  nullable    = true
+}
+
+variable "runner_token_write_mode" {
+  description = "How the runner token is written to Secret Manager. Use \"legacy\" to preserve existing sensitive secret_data behavior, or \"write_only\" to avoid persisting the token in Terraform state."
+  type        = string
+  default     = "legacy"
+
+  validation {
+    condition     = contains(["legacy", "write_only"], var.runner_token_write_mode)
+    error_message = "runner_token_write_mode must be either \"legacy\" or \"write_only\"."
+  }
+}
+
+variable "runner_token_secret_version" {
+  description = "Increment to intentionally write a new runner token Secret Manager version when runner_token_write_mode is \"write_only\"."
+  type        = number
+  default     = 1
 }
 
 variable "vpc_name" {

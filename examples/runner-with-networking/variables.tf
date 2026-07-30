@@ -36,6 +36,27 @@ variable "runner_token" {
   sensitive   = true
 }
 
+variable "runner_token_ephemeral" {
+  description = "Ephemeral runner token used only with runner_token_write_mode = \"write_only\""
+  type        = string
+  sensitive   = true
+  ephemeral   = true
+  default     = null
+  nullable    = true
+}
+
+variable "runner_token_write_mode" {
+  description = "Runner token storage mode: legacy or write_only"
+  type        = string
+  default     = "legacy"
+}
+
+variable "runner_token_secret_version" {
+  description = "Write-only runner token version; increment to rotate the token"
+  type        = number
+  default     = 1
+}
+
 variable "runner_domain" {
   description = "Domain of the runner"
   type        = string

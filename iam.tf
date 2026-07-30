@@ -427,11 +427,15 @@ resource "google_secret_manager_secret" "runner_token" {
 
 }
 
-# Create initial secret version with actual join token
+moved {
+  from = google_secret_manager_secret_version.runner_token_initial
+  to   = google_secret_manager_secret_version.runner_token_initial[0]
+}
+
 resource "google_secret_manager_secret_version" "runner_token_initial" {
+  count  = var.runner_token_write_mode == "legacy" ? 1 : 0
   secret = google_secret_manager_secret.runner_token.id
 
-  # Store the actual join token provided via Terraform variable
   secret_data = jsonencode({
     join_token = var.runner_token
     created_by = "terraform"
@@ -439,6 +443,25 @@ resource "google_secret_manager_secret_version" "runner_token_initial" {
 
   lifecycle {
     ignore_changes = [secret_data]
+  }
+}
+
+resource "google_secret_manager_secret_version" "runner_token_initial_write_only" {
+  count  = var.runner_token_write_mode == "write_only" ? 1 : 0
+  secret = google_secret_manager_secret.runner_token.id
+
+  secret_data_wo = jsonencode({
+    join_token = var.runner_token_ephemeral
+    created_by = "terraform"
+  })
+
+  secret_data_wo_version = var.runner_token_secret_version
+
+  lifecycle {
+    precondition {
+      condition     = var.runner_token_ephemeral != null && trimspace(var.runner_token_ephemeral) != ""
+      error_message = "runner_token_ephemeral must be non-empty when runner_token_write_mode is \"write_only\"."
+    }
   }
 }
 

@@ -37,6 +37,35 @@ Subsequent Terraform applies leave runner-created versions unchanged. A
 `terraform destroy` removes the secret and its versions with the rest of the
 runner infrastructure.
 
+## Runner token storage modes
+
+`runner_token_write_mode` defaults to `"legacy"`. This preserves the existing
+runner-token resource and its `secret_data` with `ignore_changes`, so repeated
+applies do not rewrite the initial token version.
+
+New deployments can opt in to write-only storage, which prevents the runner
+token from being persisted in Terraform state:
+
+```hcl
+runner_token                 = "" # Required compatibility input; unused in write_only mode.
+runner_token_write_mode      = "write_only"
+runner_token_secret_version  = 1
+```
+
+Supply the actual token only through the ephemeral input, for example:
+
+```bash
+export TF_VAR_runner_token_ephemeral='your-runner-token'
+```
+
+`runner_token` remains a required compatibility input; in write-only mode it
+is not used to write the Secret Manager version. Increment
+`runner_token_secret_version` only when intentionally writing a new token
+version. **Do not switch an existing deployment from `legacy` to `write_only`.**
+The two modes manage different Secret Manager version resources, so switching
+might delete the legacy version before writing the replacement and interrupt
+runner authentication. Write-only mode is for new deployments only.
+
 ## Releases
 
 New stable releases are published roughly once a week. To get notified when a

@@ -12,6 +12,15 @@ runner_id      = "runner-abc123def456"        # From Ona dashboard
 runner_token   = "eyJhbGciOiJSUzI1NiIs..."     # From Ona dashboard (keep secure!)
 runner_domain  = "gitpod.example.com"
 
+# Default mode is "legacy", which preserves existing secret_data behavior.
+# To opt in to write-only storage, set the following and supply the token using
+# TF_VAR_runner_token_ephemeral instead of adding it to this file.
+# runner_token                = "" # Required compatibility input; unused in write_only mode.
+# runner_token_write_mode     = "write_only"
+# runner_token_secret_version = 1
+# Do not switch an existing runner from legacy to write_only; use write_only only
+# for new deployments.
+
 # Optional Variables with Defaults
 # api_endpoint = "https://app.gitpod.io/api"
 # ssh_port = 29222

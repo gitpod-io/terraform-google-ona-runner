@@ -6,7 +6,7 @@ This example creates a full Ona runner infrastructure including VPC, DNS, and al
 
 Before starting, ensure you have:
 - **GCP Project** with billing enabled
-- **Terraform** >= 1.3 installed
+- **Terraform** >= 1.11 installed
 - **GCP CLI** (`gcloud`) installed
 - **Domain Name** with DNS modification capabilities
 
@@ -77,6 +77,30 @@ runner_domain  = "gitpod.example.com"
 # Optional: API endpoint (default shown)
 api_endpoint   = "https://app.gitpod.io/api"
 ```
+
+The default runner-token mode is `legacy`, preserving the existing Secret
+Manager version and avoiding token rewrites on repeated applies. For a new
+deployment that should keep the token out of Terraform state, configure:
+
+```hcl
+runner_token                = "" # Required compatibility input; unused in write_only mode.
+runner_token_write_mode     = "write_only"
+runner_token_secret_version = 1
+```
+
+Then provide the token only through the environment before planning or
+applying:
+
+```bash
+export TF_VAR_runner_token_ephemeral='your-runner-token'
+```
+
+Increment `runner_token_secret_version` only to intentionally create a new
+Secret Manager token version. **Do not switch an existing runner from `legacy`
+to `write_only`.** The two modes manage different Secret Manager version
+resources, so switching might delete the legacy version before writing the
+replacement and interrupt runner authentication. Write-only mode is for new
+deployments only.
 
 ### 4. Deploy the Infrastructure
 

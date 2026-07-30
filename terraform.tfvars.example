@@ -7,6 +7,17 @@ runner_id          = "your-runner-id"
 runner_token       = "your-runner-token"
 runner_domain      = "ona.example.com"
 
+# Runner token storage defaults to legacy mode, preserving the existing
+# secret_data + ignore_changes behavior. To opt in to write-only storage, set:
+# runner_token                = "" # Required compatibility input; unused in write_only mode.
+# runner_token_write_mode     = "write_only"
+# runner_token_secret_version = 1
+# Then provide the token outside this file, for example:
+# export TF_VAR_runner_token_ephemeral="your-runner-token"
+# runner_token remains required for compatibility but is not used in write_only mode.
+# Do not switch an existing runner from legacy to write_only; use write_only only
+# for new deployments.
+
 vpc_name           = "your-existing-vpc-name"
 runner_subnet_name = "your-existing-subnet-name"
 
