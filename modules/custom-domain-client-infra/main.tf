@@ -35,7 +35,8 @@ resource "google_compute_forwarding_rule" "psc_endpoint" {
   ip_address = google_compute_address.psc_ip.id
   target     = local.gitpod_service_attachment_uri
 
-  load_balancing_scheme = ""
+  load_balancing_scheme   = ""
+  allow_psc_global_access = true
 }
 
 # Create Network Endpoint Group (NEG) for the PSC endpoint
