@@ -350,12 +350,16 @@ If not pre-created, the module will create the following service accounts:
 **Custom Roles**: None
 
 **Predefined Roles**:
-- `roles/artifactregistry.reader` - Pull container images
 - `roles/logging.logWriter` - Write logs
-- `roles/monitoring.metricWriter` - Write metrics
 
 **Resource-Specific Access**:
-- `roles/cloudkms.cryptoKeyEncrypterDecrypter` on KMS key (if CMEK is enabled)
+- `roles/artifactregistry.reader` on the module-created runner image-cache repository
+- `roles/storage.objectViewer` on the custom trust-bundle object, when configured
+
+Additional private Artifact Registry repositories must grant
+`roles/artifactregistry.reader` directly to this service account. Because the
+identity is shared, every environment on the runner receives that repository
+access.
 
 ### 3. Proxy VM Service Account
 - **Name**: `{runner_name}-proxy-vm` (e.g., `gcp-2-proxy-vm`)
@@ -589,22 +593,10 @@ gcloud projects add-iam-policy-binding ${PROJECT_ID} \
     --member="serviceAccount:${RUNNER_NAME}-runner@${PROJECT_ID}.iam.gserviceaccount.com" \
     --role="roles/monitoring.metricWriter"
 
-# Environment VM service account - minimal permissions
-gcloud projects add-iam-policy-binding ${PROJECT_ID} \
-    --member="serviceAccount:${RUNNER_NAME}-env-vm@${PROJECT_ID}.iam.gserviceaccount.com" \
-    --role="roles/artifactregistry.reader"
-
+# Environment VM service account - write-only project logging
 gcloud projects add-iam-policy-binding ${PROJECT_ID} \
     --member="serviceAccount:${RUNNER_NAME}-env-vm@${PROJECT_ID}.iam.gserviceaccount.com" \
     --role="roles/logging.logWriter"
-
-gcloud projects add-iam-policy-binding ${PROJECT_ID} \
-    --member="serviceAccount:${RUNNER_NAME}-env-vm@${PROJECT_ID}.iam.gserviceaccount.com" \
-    --role="roles/monitoring.metricWriter"
-
-gcloud projects add-iam-policy-binding ${PROJECT_ID} \
-    --member="serviceAccount:${RUNNER_NAME}-env-vm@${PROJECT_ID}.iam.gserviceaccount.com" \
-    --role="roles/cloudkms.cryptoKeyEncrypterDecrypter"
 
 # Proxy VM service account - proxy functionality
 gcloud projects add-iam-policy-binding ${PROJECT_ID} \
@@ -664,9 +656,7 @@ Project-level roles that need to be manually assigned via the GCP Console or `gc
 | | `roles/logging.logWriter` | |
 | | `roles/monitoring.metricWriter` | |
 | | `roles/secretmanager.secretVersionManager` | |
-| **`${RUNNER_NAME}-env-vm`** | `roles/artifactregistry.reader` | |
-| | `roles/logging.logWriter` | |
-| | `roles/monitoring.metricWriter` | |
+| **`${RUNNER_NAME}-env-vm`** | `roles/logging.logWriter` | |
 | **`${RUNNER_NAME}-proxy-vm`** | `roles/compute.viewer` | ★ Proxy VM |
 | | `roles/logging.logWriter` | |
 | | `roles/monitoring.metricWriter` | |
