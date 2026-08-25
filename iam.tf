@@ -686,14 +686,21 @@ resource "google_storage_bucket_iam_member" "env_vm_runner_assets_access" {
 # KMS ACCESS FOR CMEK ENCRYPTION
 # ================================
 
-# Direct KMS access is limited to trusted runner and proxy workloads. Google
-# service agents perform CMEK operations for environment disks and GCS objects.
+# KMS access for all service accounts when CMEK is enabled
 resource "google_kms_crypto_key_iam_member" "runner_kms_access" {
   count = (var.create_cmek || var.kms_key_name != null) && local.runner_sa_email != "" ? 1 : 0
 
   crypto_key_id = local.kms_key_name
   role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
   member        = "serviceAccount:${local.runner_sa_email}"
+}
+
+resource "google_kms_crypto_key_iam_member" "environment_vm_kms_access" {
+  count = (var.create_cmek || var.kms_key_name != null) && local.environment_vm_sa_email != "" ? 1 : 0
+
+  crypto_key_id = local.kms_key_name
+  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+  member        = "serviceAccount:${local.environment_vm_sa_email}"
 }
 
 resource "google_kms_crypto_key_iam_member" "proxy_vm_kms_access" {

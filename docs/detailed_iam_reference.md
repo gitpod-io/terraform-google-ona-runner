@@ -71,12 +71,15 @@ scopes do not extend the IAM permissions listed here.
 - `roles/logging.logWriter` - Write logs to Cloud Logging for workspace activity and debugging
 - `roles/artifactregistry.reader` on the runner's image-cache repository - Read cached container images for workspace setup
 - `roles/storage.objectViewer` on the custom trust-bundle object, when configured - Install the customer CA certificate during bootstrap
+- `roles/cloudkms.cryptoKeyEncrypterDecrypter` on the configured KMS key, when CMEK is enabled - Support encrypted environment disk storage
 
 **Security Rationale**: Workspace VMs share this identity, so its resource
-access is intentionally limited to write-only logging and bootstrap resources
-owned by this runner. Access to customer Artifact Registry repositories must be
-granted explicitly on each repository and is consequently shared by all
-environments using this service account. The identity has no direct KMS access.
+access is intentionally limited to write-only logging, bootstrap resources
+owned by this runner, and the configured CMEK key used for environment disk
+storage. Access to customer Artifact Registry repositories must be granted
+explicitly on each repository and is consequently shared by all environments
+using this service account. The key-scoped KMS grant is also shared by those
+environments.
 
 When upgrading from a version that granted project-wide Artifact Registry
 Reader, add repository-level bindings for every additional private repository

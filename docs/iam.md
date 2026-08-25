@@ -355,6 +355,7 @@ If not pre-created, the module will create the following service accounts:
 **Resource-Specific Access**:
 - `roles/artifactregistry.reader` on the module-created runner image-cache repository
 - `roles/storage.objectViewer` on the custom trust-bundle object, when configured
+- `roles/cloudkms.cryptoKeyEncrypterDecrypter` on the configured KMS key, when CMEK is enabled
 
 Additional private Artifact Registry repositories must grant
 `roles/artifactregistry.reader` directly to this service account. Because the
