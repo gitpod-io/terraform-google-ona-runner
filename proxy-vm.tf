@@ -163,7 +163,8 @@ resource "google_compute_region_instance_group_manager" "proxy" {
     replacement_method = var.proxy_vm_config.update_policy_config.replacement_method
   }
 
-  wait_for_instances = true
+  wait_for_instances        = true
+  wait_for_instances_status = "UPDATED"
 
   lifecycle {
     create_before_destroy = true

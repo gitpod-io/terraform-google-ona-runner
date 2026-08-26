@@ -131,4 +131,9 @@ run "plan_docker_configuration_migration" {
     condition     = google_storage_bucket_iam_member.runner_docker_credentials_access[0].member == "serviceAccount:runner@test-project.iam.gserviceaccount.com" && google_storage_bucket_iam_member.proxy_vm_docker_credentials_access[0].member == "serviceAccount:proxy@test-project.iam.gserviceaccount.com"
     error_message = "The migration plan must grant runner and proxy access to the credential bucket."
   }
+
+  assert {
+    condition     = google_compute_region_instance_group_manager.runner.wait_for_instances_status == "UPDATED" && google_compute_region_instance_group_manager.proxy.wait_for_instances_status == "UPDATED"
+    error_message = "The migration must wait for every runner and proxy instance to reach the new template before sanitizing the legacy object."
+  }
 }
