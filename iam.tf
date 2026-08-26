@@ -329,6 +329,17 @@ resource "google_storage_bucket_iam_member" "runner_runner_assets_access" {
   member = "serviceAccount:${local.runner_sa_email}"
 }
 
+# The optional Docker config contains reusable registry credentials. Keep its
+# readers separate from environment VMs, which retain access only to non-secret
+# runner assets.
+resource "google_storage_bucket_iam_member" "runner_docker_credentials_access" {
+  count = local.docker_config_enabled ? 1 : 0
+
+  bucket = google_storage_bucket.docker_credentials[0].name
+  role   = "roles/storage.objectViewer"
+  member = "serviceAccount:${local.runner_sa_email}"
+}
+
 # GCS access for agent storage bucket (runner VMs)
 # objectAdmin is required because the runner deletes conversation, blob, and
 # result objects during agent execution cleanup (objectUser lacks delete).
@@ -602,6 +613,14 @@ resource "google_secret_manager_secret_iam_member" "proxy_vm_certificate_secret_
 resource "google_storage_bucket_iam_member" "proxy_vm_runner_assets_access" {
   bucket = google_storage_bucket.runner_assets.name
   role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${local.proxy_vm_sa_email}"
+}
+
+resource "google_storage_bucket_iam_member" "proxy_vm_docker_credentials_access" {
+  count = local.docker_config_enabled ? 1 : 0
+
+  bucket = google_storage_bucket.docker_credentials[0].name
+  role   = "roles/storage.objectViewer"
   member = "serviceAccount:${local.proxy_vm_sa_email}"
 }
 

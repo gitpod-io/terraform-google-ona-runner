@@ -235,6 +235,36 @@ resource "google_storage_bucket" "runner_assets" {
   })
 }
 
+# Dedicated credential store for the optional Docker config. Environment VMs
+# intentionally have no access to this bucket; only runner and proxy VMs use it
+# while bootstrapping images from authenticated registries.
+resource "google_storage_bucket" "docker_credentials" {
+  count = local.docker_config_enabled ? 1 : 0
+
+  name     = "${var.runner_id}-docker-credentials"
+  project  = var.project_id
+  location = var.region
+
+  uniform_bucket_level_access = true
+  public_access_prevention    = "enforced"
+
+  versioning {
+    enabled = false
+  }
+
+  dynamic "encryption" {
+    for_each = local.kms_key_name != null ? [1] : []
+    content {
+      default_kms_key_name = local.kms_key_name
+    }
+  }
+
+  labels = merge(var.labels, {
+    gitpod-component = "docker-credentials"
+    managed-by       = "terraform"
+  })
+}
+
 # GCS bucket for storing agent execution artifacts
 resource "google_storage_bucket" "agent_storage" {
   count = var.enable_agents ? 1 : 0
@@ -327,12 +357,14 @@ resource "google_storage_bucket_object" "trust_bundle" {
   }
 }
 
-# Upload Docker config.json to GCS bucket if provided
+# Upload Docker config.json to its private credential bucket if provided.
+# create_before_destroy migrates the object to this bucket before Terraform
+# removes the legacy copy from the environment-readable runner-assets bucket.
 resource "google_storage_bucket_object" "docker_config" {
   count = local.docker_config_enabled ? 1 : 0
 
   name   = "docker-config.json"
-  bucket = google_storage_bucket.runner_assets.name
+  bucket = google_storage_bucket.docker_credentials[0].name
 
   # Use Docker config.json content directly
   content = var.custom_images.docker_config_json
@@ -343,5 +375,9 @@ resource "google_storage_bucket_object" "docker_config" {
   metadata = {
     uploaded_by = "terraform"
     runner_id   = var.runner_id
+  }
+
+  lifecycle {
+    create_before_destroy = true
   }
 }

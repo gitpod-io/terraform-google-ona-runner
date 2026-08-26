@@ -189,6 +189,8 @@ resource "google_compute_instance_template" "runner" {
 
   labels = local.runner_labels
 
+  depends_on = [google_storage_bucket_iam_member.runner_docker_credentials_access]
+
   disk {
     source_image = "cos-cloud/cos-stable"
     auto_delete  = true

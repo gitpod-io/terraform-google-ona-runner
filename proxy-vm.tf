@@ -57,6 +57,8 @@ resource "google_compute_instance_template" "proxy" {
 
   labels = local.proxy_labels
 
+  depends_on = [google_storage_bucket_iam_member.proxy_vm_docker_credentials_access]
+
   disk {
     source_image = "cos-cloud/cos-stable"
     auto_delete  = true

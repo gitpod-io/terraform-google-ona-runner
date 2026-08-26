@@ -67,7 +67,7 @@ locals {
 
   # Docker config handling
   docker_config_enabled     = var.custom_images.docker_config_json != ""
-  docker_config_bucket_name = local.docker_config_enabled ? google_storage_bucket.runner_assets.name : ""
+  docker_config_bucket_name = local.docker_config_enabled ? google_storage_bucket.docker_credentials[0].name : ""
   docker_config_object_name = local.docker_config_enabled ? google_storage_bucket_object.docker_config[0].name : ""
 
   # Insecure registries handling
