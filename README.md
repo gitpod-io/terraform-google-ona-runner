@@ -48,9 +48,11 @@ assets bucket and receive no module-managed access to the credential bucket.
 On the first apply after upgrading from a version that stored
 `docker-config.json` in the runner assets bucket, Terraform creates the private
 bucket and its reader bindings, updates runner and proxy instance templates,
-and removes only the old `docker-config.json` object from the runner assets
-bucket. Other runner assets are unchanged. Review the plan to confirm both the
-new object creation and the old object replacement before applying.
+waits for both managed instance groups to finish rolling, and then overwrites
+the old `docker-config.json` object in the runner assets bucket with an empty,
+non-secret Docker configuration. Other runner assets are unchanged. Review the
+plan to confirm both the new private object creation and the legacy object
+content update before applying.
 
 Pre-created service accounts use the same resource-specific bucket bindings,
 including when `pre_created_service_accounts.attach_iam_policies` is `false`.

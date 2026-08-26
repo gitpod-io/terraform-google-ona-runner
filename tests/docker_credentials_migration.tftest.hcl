@@ -113,8 +113,18 @@ run "plan_docker_configuration_migration" {
   }
 
   assert {
-    condition     = google_storage_bucket_object.docker_config[0].bucket == google_storage_bucket.docker_credentials[0].name
-    error_message = "The migration must replace the legacy object with one in the credential bucket."
+    condition     = google_storage_bucket_object.docker_config_private[0].bucket == google_storage_bucket.docker_credentials[0].name
+    error_message = "The migration must create a new object in the credential bucket."
+  }
+
+  assert {
+    condition     = google_storage_bucket_object.docker_config[0].bucket == google_storage_bucket.runner_assets.name
+    error_message = "The migration must not move the legacy object across buckets in place."
+  }
+
+  assert {
+    condition     = nonsensitive(google_storage_bucket_object.docker_config[0].content) == jsonencode({ auths = {} })
+    error_message = "The migration must sanitize the legacy object with an empty Docker configuration."
   }
 
   assert {

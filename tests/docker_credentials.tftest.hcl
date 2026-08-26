@@ -86,8 +86,8 @@ run "docker_configuration_disabled" {
   }
 
   assert {
-    condition     = length(google_storage_bucket_object.docker_config) == 0
-    error_message = "The Docker configuration object must be optional."
+    condition     = length(google_storage_bucket_object.docker_config_private) == 0 && length(google_storage_bucket_object.docker_config) == 0
+    error_message = "The Docker configuration objects must be optional."
   }
 
   assert {
@@ -122,8 +122,13 @@ run "docker_configuration_enabled" {
   }
 
   assert {
-    condition     = google_storage_bucket_object.docker_config[0].bucket == google_storage_bucket.docker_credentials[0].name
+    condition     = google_storage_bucket_object.docker_config_private[0].bucket == google_storage_bucket.docker_credentials[0].name
     error_message = "docker-config.json must not be stored in runner assets."
+  }
+
+  assert {
+    condition     = google_storage_bucket_object.docker_config[0].bucket == google_storage_bucket.runner_assets.name && nonsensitive(google_storage_bucket_object.docker_config[0].content) == jsonencode({ auths = {} })
+    error_message = "The legacy object must contain only an empty Docker configuration."
   }
 
   assert {

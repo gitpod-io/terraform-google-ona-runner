@@ -357,10 +357,10 @@ resource "google_storage_bucket_object" "trust_bundle" {
   }
 }
 
-# Upload Docker config.json to its private credential bucket if provided.
-# create_before_destroy migrates the object to this bucket before Terraform
-# removes the legacy copy from the environment-readable runner-assets bucket.
-resource "google_storage_bucket_object" "docker_config" {
+# Upload Docker config.json to its private credential bucket if provided. This
+# uses a new address because the Google provider handles a bucket change as an
+# in-place object update, which cannot safely migrate an existing object.
+resource "google_storage_bucket_object" "docker_config_private" {
   count = local.docker_config_enabled ? 1 : 0
 
   name   = "docker-config.json"
@@ -380,4 +380,26 @@ resource "google_storage_bucket_object" "docker_config" {
   lifecycle {
     create_before_destroy = true
   }
+}
+
+# Preserve the legacy address and sanitize its environment-readable object only
+# after every runner and proxy instance has rolled onto the private bucket.
+resource "google_storage_bucket_object" "docker_config" {
+  count = local.docker_config_enabled ? 1 : 0
+
+  name    = "docker-config.json"
+  bucket  = google_storage_bucket.runner_assets.name
+  content = jsonencode({ auths = {} })
+
+  content_type = "application/json"
+
+  metadata = {
+    uploaded_by = "terraform"
+    runner_id   = var.runner_id
+  }
+
+  depends_on = [
+    google_compute_region_instance_group_manager.runner,
+    google_compute_region_instance_group_manager.proxy,
+  ]
 }
