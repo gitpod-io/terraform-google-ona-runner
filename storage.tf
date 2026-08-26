@@ -399,7 +399,7 @@ resource "google_storage_bucket_object" "docker_config" {
   }
 
   depends_on = [
-    google_compute_region_instance_group_manager.runner,
-    google_compute_region_instance_group_manager.proxy,
+    null_resource.health_validation_external,
+    null_resource.health_validation_internal,
   ]
 }

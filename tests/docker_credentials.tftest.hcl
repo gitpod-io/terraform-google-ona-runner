@@ -147,8 +147,8 @@ run "docker_configuration_enabled" {
   }
 
   assert {
-    condition     = strcontains(nonsensitive(data.cloudinit_config.runner.part[0].content), google_storage_bucket.docker_credentials[0].name) && strcontains(nonsensitive(data.cloudinit_config.proxy.part[0].content), google_storage_bucket.docker_credentials[0].name)
-    error_message = "Runner and proxy bootstrap must reference the credential bucket."
+    condition     = strcontains(nonsensitive(data.cloudinit_config.runner.part[0].content), google_storage_bucket.docker_credentials[0].name) && strcontains(nonsensitive(data.cloudinit_config.proxy.part[0].content), google_storage_bucket.docker_credentials[0].name) && strcontains(nonsensitive(data.cloudinit_config.runner.part[0].content), "Docker config download attempt") && strcontains(nonsensitive(data.cloudinit_config.proxy.part[0].content), "Docker config download attempt")
+    error_message = "Runner and proxy bootstrap must reference the credential bucket and retry downloads while IAM propagates."
   }
 }
 

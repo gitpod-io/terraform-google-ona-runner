@@ -43,6 +43,11 @@ run "apply_legacy_docker_configuration" {
     condition     = google_storage_bucket_object.docker_config[0].bucket == google_storage_bucket.runner_assets.name
     error_message = "The legacy fixture must store docker-config.json in runner assets."
   }
+
+  assert {
+    condition     = strcontains(google_compute_instance_template.runner.metadata["user-data"], google_storage_bucket.runner_assets.name) && strcontains(google_compute_instance_template.proxy.metadata["user-data"], google_storage_bucket.runner_assets.name)
+    error_message = "The legacy fixture must model runner and proxy instances using the environment-readable object."
+  }
 }
 
 run "plan_docker_configuration_migration" {
