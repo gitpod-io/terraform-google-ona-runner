@@ -19,6 +19,13 @@ runner_domain  = "gitpod.example.com"
 # certificate_id = ""
 # labels = {}
 # proxy_config = null
+# environment_vm_artifact_registry_repositories = [
+#   {
+#     project_id    = "shared-images-project"
+#     location      = "us-central1"
+#     repository_id = "approved-devcontainers"
+#   }
+# ]
 
 # Runner size profile: "regular" (default) or "small" (cost-optimized for test/dev)
 # "small" uses: n4-standard-2 VMs, 1 proxy replica, nano Redis nodes with no replicas

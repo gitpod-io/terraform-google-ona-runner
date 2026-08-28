@@ -112,4 +112,18 @@ locals {
   environment_vm_sa_name = var.pre_created_service_accounts.environment_vm != "" ? "projects/${var.project_id}/serviceAccounts/${var.pre_created_service_accounts.environment_vm}" : try(google_service_account.environment_vm[0].name, "")
   proxy_vm_sa_name       = var.pre_created_service_accounts.proxy_vm != "" ? "projects/${var.project_id}/serviceAccounts/${var.pre_created_service_accounts.proxy_vm}" : try(google_service_account.proxy_vm[0].name, "")
 
+  environment_vm_artifact_registry_repositories = merge(
+    {
+      "${var.project_id}/${var.region}/gitpod-cache-${var.runner_id}" = {
+        project_id    = var.project_id
+        location      = var.region
+        repository_id = google_artifact_registry_repository.runner.repository_id
+      }
+    },
+    {
+      for repository in var.environment_vm_artifact_registry_repositories :
+      "${repository.project_id}/${repository.location}/${repository.repository_id}" => repository
+    }
+  )
+
 }

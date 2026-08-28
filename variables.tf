@@ -306,6 +306,24 @@ variable "pre_created_service_accounts" {
 
 }
 
+variable "environment_vm_artifact_registry_repositories" {
+  description = "Additional Artifact Registry repositories that environment VMs may read. The module-created devcontainer cache repository is always included when Terraform manages service-account IAM. Each entry identifies a repository by project, location, and repository ID; use this list for private devcontainer images and cross-project repositories."
+  type = list(object({
+    project_id    = string
+    location      = string
+    repository_id = string
+  }))
+  default = []
+
+  validation {
+    condition = length(var.environment_vm_artifact_registry_repositories) == length(distinct([
+      for repository in var.environment_vm_artifact_registry_repositories :
+      "${repository.project_id}/${repository.location}/${repository.repository_id}"
+    ]))
+    error_message = "environment_vm_artifact_registry_repositories must not contain duplicate project, location, and repository ID combinations."
+  }
+}
+
 variable "custom_images" {
   description = "Custom Docker images to use instead of default ones. Optionally includes Docker config.json content for registry credentials and insecure registry flag."
   type = object({

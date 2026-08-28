@@ -350,11 +350,12 @@ If not pre-created, the module will create the following service accounts:
 **Custom Roles**: None
 
 **Predefined Roles**:
-- `roles/artifactregistry.reader` - Pull container images
 - `roles/logging.logWriter` - Write logs
 - `roles/monitoring.metricWriter` - Write metrics
 
 **Resource-Specific Access**:
+- `roles/artifactregistry.reader` on the module-created devcontainer cache and
+  each repository in `environment_vm_artifact_registry_repositories`
 - `roles/cloudkms.cryptoKeyEncrypterDecrypter` on KMS key (if CMEK is enabled)
 
 ### 3. Proxy VM Service Account
@@ -589,11 +590,6 @@ gcloud projects add-iam-policy-binding ${PROJECT_ID} \
     --member="serviceAccount:${RUNNER_NAME}-runner@${PROJECT_ID}.iam.gserviceaccount.com" \
     --role="roles/monitoring.metricWriter"
 
-# Environment VM service account - minimal permissions
-gcloud projects add-iam-policy-binding ${PROJECT_ID} \
-    --member="serviceAccount:${RUNNER_NAME}-env-vm@${PROJECT_ID}.iam.gserviceaccount.com" \
-    --role="roles/artifactregistry.reader"
-
 gcloud projects add-iam-policy-binding ${PROJECT_ID} \
     --member="serviceAccount:${RUNNER_NAME}-env-vm@${PROJECT_ID}.iam.gserviceaccount.com" \
     --role="roles/logging.logWriter"
@@ -664,8 +660,7 @@ Project-level roles that need to be manually assigned via the GCP Console or `gc
 | | `roles/logging.logWriter` | |
 | | `roles/monitoring.metricWriter` | |
 | | `roles/secretmanager.secretVersionManager` | |
-| **`${RUNNER_NAME}-env-vm`** | `roles/artifactregistry.reader` | |
-| | `roles/logging.logWriter` | |
+| **`${RUNNER_NAME}-env-vm`** | `roles/logging.logWriter` | |
 | | `roles/monitoring.metricWriter` | |
 | **`${RUNNER_NAME}-proxy-vm`** | `roles/compute.viewer` | ★ Proxy VM |
 | | `roles/logging.logWriter` | |
@@ -765,3 +760,97 @@ gcloud projects add-iam-policy-binding ${PROJECT_ID} \
   --member="serviceAccount:${SA}" \
   --role="roles/compute.viewer"
 ```
+
+## Environment VM Artifact Registry access
+
+When the module manages service-account IAM, it grants the environment VM
+identity `roles/artifactregistry.reader` on only these repositories:
+
+- The module-created `gitpod-cache-${RUNNER_ID}` repository in the runner
+  project and region. Environments use it for devcontainer image caching.
+- Each repository named in
+  `environment_vm_artifact_registry_repositories`. Use this input for private
+  devcontainer base images or other images that environments must pull. Entries
+  can name repositories in other projects and locations.
+
+The default additional repository list is empty. It does not restore the old
+project-wide reader grant. A repository grant allows reading every image in
+that repository; it does not provide per-image or per-environment isolation.
+Runner and proxy images are pulled by their separate service accounts and do
+not belong in this environment allowlist.
+
+### Customer-managed IAM
+
+When any account in `pre_created_service_accounts` is set and
+`attach_iam_policies` is `false`, the module creates no Artifact Registry IAM
+bindings for the environment identity. Grant the identity access to the
+module-created cache and every configured additional repository:
+
+```bash
+export ENVIRONMENT_SA="${RUNNER_NAME}-env-vm@${PROJECT_ID}.iam.gserviceaccount.com"
+
+gcloud artifacts repositories add-iam-policy-binding \
+  "gitpod-cache-${RUNNER_ID}" \
+  --project="${PROJECT_ID}" \
+  --location="${REGION}" \
+  --member="serviceAccount:${ENVIRONMENT_SA}" \
+  --role="roles/artifactregistry.reader"
+
+gcloud artifacts repositories add-iam-policy-binding \
+  "approved-devcontainers" \
+  --project="shared-images-project" \
+  --location="us-central1" \
+  --member="serviceAccount:${ENVIRONMENT_SA}" \
+  --role="roles/artifactregistry.reader"
+```
+
+The Terraform deployer needs permission to set IAM policies on every listed
+repository, including repositories in other projects, when
+`attach_iam_policies` is `true`.
+
+Keep the runner, environment, and proxy service accounts distinct. Reusing the
+runner or proxy identity for environment VMs defeats this restriction because
+those roles retain broader Artifact Registry permissions. Project, folder,
+organization, domain, and group grants can have the same effect. Review the
+effective policy for the environment identity and remove inherited
+`roles/artifactregistry.reader`, broader Artifact Registry roles, and custom
+roles that include artifact download permissions. This module removes only its
+own former project-level binding.
+
+### Upgrade from project-wide access
+
+Before upgrading, inventory every Artifact Registry repository used by private
+devcontainer images, prebuilds, and the devcontainer image cache. Add all
+non-module repositories to
+`environment_vm_artifact_registry_repositories`. An empty list keeps access to
+the module-created cache only.
+
+Review the upgrade plan and confirm that it:
+
+1. Destroys
+   `google_project_iam_member.env_vm_artifact_registry`, the project-wide
+   reader binding.
+2. Creates one
+   `google_artifact_registry_repository_iam_member.environment_vm_reader`
+   instance for the module cache and each approved repository.
+3. Does not change runner or proxy Artifact Registry grants.
+
+Terraform may add the repository bindings and remove the project binding in the
+same apply, while IAM changes can take time to propagate. For deployments that
+must avoid interrupted image pulls, first apply only the new repository
+bindings, wait for the grants to become effective, and then apply the complete
+plan. In customer-managed IAM mode, have the IAM administrator add and verify
+the repository grants instead of running the targeted module apply.
+
+```bash
+terraform apply \
+  -target='google_artifact_registry_repository_iam_member.environment_vm_reader'
+
+terraform plan -out=restrict-environment-artifact-registry.tfplan
+terraform apply restrict-environment-artifact-registry.tfplan
+```
+
+Use the targeted apply only as this transitional rollout step. Verify cold and
+warm environment starts during an authorized maintenance window. A Terraform
+plan or mocked test does not prove effective deployed IAM or runtime image-pull
+isolation.
