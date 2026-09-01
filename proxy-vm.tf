@@ -57,6 +57,8 @@ resource "google_compute_instance_template" "proxy" {
 
   labels = local.proxy_labels
 
+  depends_on = [google_storage_bucket_iam_member.proxy_vm_docker_credentials_access]
+
   disk {
     source_image = "cos-cloud/cos-stable"
     auto_delete  = true
@@ -161,7 +163,8 @@ resource "google_compute_region_instance_group_manager" "proxy" {
     replacement_method = var.proxy_vm_config.update_policy_config.replacement_method
   }
 
-  wait_for_instances = true
+  wait_for_instances        = true
+  wait_for_instances_status = "UPDATED"
 
   lifecycle {
     create_before_destroy = true

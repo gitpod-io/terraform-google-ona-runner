@@ -7,7 +7,8 @@ This document explains the minimal IAM roles required to deploy the Ona GCP Terr
 - **`roles/compute.instanceAdmin.v1`** - Creates VM instances, instance templates, and managed instance groups
 - **`roles/compute.networkAdmin`** - Creates load balancers, health checks, backend services, and VPC peering
 - **`roles/compute.securityAdmin`** - Creates firewall rules for service isolation
-- **`roles/storage.admin`** - Creates GCS buckets for build cache and runner assets
+- **`roles/storage.admin`** - Creates GCS buckets for build cache, runner assets,
+  and optional Docker credentials, and manages their resource-specific IAM
 - **`roles/redis.admin`** - Creates Redis instance with private networking
 - **`roles/secretmanager.admin`** - Creates secrets for credentials and configuration
 - **`roles/pubsub.admin`** - Creates Pub/Sub topics and subscriptions

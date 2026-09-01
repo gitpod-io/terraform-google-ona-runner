@@ -336,6 +336,8 @@ If not pre-created, the module will create the following service accounts:
 - `roles/secretmanager.secretAccessor` on metrics configuration secret
 - `roles/secretmanager.secretVersionManager` - Manage secret versions
 - `roles/storage.objectAdmin` on runner assets bucket
+- `roles/storage.objectViewer` on Docker credentials bucket when
+  `custom_images.docker_config_json` is set
 - `roles/storage.objectAdmin` on build cache bucket
 - `roles/pubsub.subscriber` on compute events subscription
 - `roles/pubsub.viewer` on dead letter subscription
@@ -355,6 +357,9 @@ If not pre-created, the module will create the following service accounts:
 - `roles/monitoring.metricWriter` - Write metrics
 
 **Resource-Specific Access**:
+- `roles/storage.objectViewer` on the runner assets bucket for non-secret
+  bootstrap assets
+- No module-managed access to the Docker credentials bucket
 - `roles/cloudkms.cryptoKeyEncrypterDecrypter` on KMS key (if CMEK is enabled)
 
 ### 3. Proxy VM Service Account
@@ -378,6 +383,8 @@ If not pre-created, the module will create the following service accounts:
 - `roles/secretmanager.secretAccessor` on certificate secret (internal LB only)
 - `roles/secretmanager.secretAccessor` on metrics configuration secret
 - `roles/storage.objectViewer` on runner assets bucket
+- `roles/storage.objectViewer` on Docker credentials bucket when
+  `custom_images.docker_config_json` is set
 - `roles/cloudkms.cryptoKeyEncrypterDecrypter` on KMS key (if CMEK is enabled)
 
 ## Manual Creation Commands (For IAM Teams)

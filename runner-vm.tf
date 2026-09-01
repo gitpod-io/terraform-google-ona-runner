@@ -189,6 +189,8 @@ resource "google_compute_instance_template" "runner" {
 
   labels = local.runner_labels
 
+  depends_on = [google_storage_bucket_iam_member.runner_docker_credentials_access]
+
   disk {
     source_image = "cos-cloud/cos-stable"
     auto_delete  = true
@@ -308,7 +310,8 @@ resource "google_compute_region_instance_group_manager" "runner" {
     min_ready_sec = 120 # 2 minutes to allow for container startup and initial health checks
   }
 
-  wait_for_instances = true
+  wait_for_instances        = true
+  wait_for_instances_status = "UPDATED"
 
   # Ensure storage and secret permissions are ready before runner instances start.
   depends_on = [
