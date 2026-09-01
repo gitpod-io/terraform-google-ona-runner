@@ -69,9 +69,14 @@ version. The module does not place the key material in Terraform state.
 **IAM Roles**:
 - `roles/monitoring.metricWriter` - Write custom metrics for workspace monitoring (CPU, memory, disk usage, application-specific metrics)
 - `roles/logging.logWriter` - Write logs to Cloud Logging for workspace activity and debugging
-- `roles/artifactregistry.reader` - Read container images from Artifact Registry for workspace setup
+- `roles/artifactregistry.reader` on the module-created devcontainer cache and
+  explicitly approved repositories - Read container images for workspace setup
 
-**Security Rationale**: Workspace VMs have minimal permissions - only metric writing, logging, and reading container images. No access to other workspaces, secrets, or infrastructure management. This limits blast radius if a workspace is compromised.
+**Security Rationale**: Workspace VMs have metric-writing, logging, and
+repository-scoped image-reading permissions. They cannot read unrelated
+Artifact Registry repositories through module-managed IAM. See
+[Environment VM Artifact Registry access](iam.md#environment-vm-artifact-registry-access)
+for the repository configuration and inherited-IAM caveats.
 
 ### 3. Proxy VM Service Account (`proxy_vm`)
 **Purpose**: Used by proxy VMs for load balancing and traffic routing

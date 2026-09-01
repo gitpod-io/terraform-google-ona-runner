@@ -23,6 +23,13 @@ certificate_id     = "projects/your-project/locations/global/certificates/your-c
 # ssh_port = 29222
 # development_version = ""
 # labels = {}
+# environment_vm_artifact_registry_repositories = [
+#   {
+#     project_id    = "shared-images-project"
+#     location      = "us-central1"
+#     repository_id = "approved-devcontainers"
+#   }
+# ]
 # proxy_config = {
 #   http_proxy  = "http://proxy.company.com:8080"
 #   https_proxy = "http://proxy.company.com:8080"
