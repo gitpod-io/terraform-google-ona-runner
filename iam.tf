@@ -351,15 +351,19 @@ resource "google_service_account" "environment_vm" {
   project      = var.project_id
 }
 
-# Minimal permissions for environment VMs
-resource "google_project_iam_member" "env_vm_artifact_registry" {
-  count   = local.manage_service_account_iam_policies && local.environment_vm_sa_email != "" ? 1 : 0
-  project = var.project_id
-  role    = "roles/artifactregistry.reader"
-  member  = "serviceAccount:${local.environment_vm_sa_email}"
+# Environment VMs only need to read the runner's own image cache. Access to
+# customer repositories must be granted explicitly on those repositories.
+resource "google_artifact_registry_repository_iam_member" "env_vm_artifact_registry" {
+  count = local.environment_vm_sa_email != "" ? 1 : 0
+
+  project    = google_artifact_registry_repository.runner.project
+  location   = google_artifact_registry_repository.runner.location
+  repository = google_artifact_registry_repository.runner.repository_id
+  role       = "roles/artifactregistry.reader"
+  member     = "serviceAccount:${local.environment_vm_sa_email}"
 }
 
-# Logging and monitoring permissions consolidated below
+# Logging permissions are consolidated below.
 
 # Allow runner control plane to access the Redis credentials secret
 resource "google_secret_manager_secret_iam_member" "runner_cp_redis_secret_access" {
@@ -484,21 +488,12 @@ resource "google_project_iam_member" "env_vm_logging" {
   member  = "serviceAccount:${local.environment_vm_sa_email}"
 }
 
-
-
-# Monitoring permissions - individual members for each service account
+# Monitoring permissions - individual members for trusted service accounts
 resource "google_project_iam_member" "runner_cp_monitoring" {
   count   = local.manage_service_account_iam_policies && local.runner_sa_email != "" ? 1 : 0
   project = var.project_id
   role    = "roles/monitoring.metricWriter"
   member  = "serviceAccount:${local.runner_sa_email}"
-}
-
-resource "google_project_iam_member" "env_vm_monitoring" {
-  count   = local.manage_service_account_iam_policies && local.environment_vm_sa_email != "" ? 1 : 0
-  project = var.project_id
-  role    = "roles/monitoring.metricWriter"
-  member  = "serviceAccount:${local.environment_vm_sa_email}"
 }
 
 # Service account for proxy VMs
@@ -671,11 +666,20 @@ resource "google_project_iam_audit_config" "storage_audit" {
   }
 }
 
-# GCS access for runner assets bucket (environment VMs)
+# Environment VMs only read the custom trust bundle. Other runner assets can
+# contain credentials or telemetry that must remain outside the tenant boundary.
 resource "google_storage_bucket_iam_member" "env_vm_runner_assets_access" {
+  count = local.has_certificates && local.environment_vm_sa_email != "" ? 1 : 0
+
   bucket = google_storage_bucket.runner_assets.name
   role   = "roles/storage.objectViewer"
   member = "serviceAccount:${local.environment_vm_sa_email}"
+
+  condition {
+    title       = "read-environment-trust-bundle"
+    description = "Restrict environment VMs to the custom CA trust bundle"
+    expression  = "resource.name == \"projects/_/buckets/${google_storage_bucket.runner_assets.name}/objects/${google_storage_bucket_object.trust_bundle[0].name}\""
+  }
 }
 
 # ================================
