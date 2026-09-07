@@ -172,10 +172,11 @@ module "runner" {
   create_cmek          = var.create_cmek
   kms_key_name         = var.kms_key_name
 
-  custom_images             = var.custom_images
-  enable_agents             = var.enable_agents
-  enable_cross_zone_restart = var.enable_cross_zone_restart
-  labels                    = var.labels
+  custom_images                                 = var.custom_images
+  environment_vm_artifact_registry_repositories = var.environment_vm_artifact_registry_repositories
+  enable_agents                                 = var.enable_agents
+  enable_cross_zone_restart                     = var.enable_cross_zone_restart
+  labels                                        = var.labels
 
   depends_on = [module.networking, module.dns, module.self_signed_cert, module.certbot]
 }

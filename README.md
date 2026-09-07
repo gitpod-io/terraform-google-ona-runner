@@ -44,3 +44,25 @@ release is available, subscribe to the Pub/Sub release notifications topic from
 your own GCP project. See the
 [Release Notifications](https://ona.com/docs/ona/runners/gcp/update-runner#release-notifications)
 documentation for topic details, message format, and subscription examples.
+
+## Environment VM image repositories
+
+The module grants the environment VM service account
+`roles/artifactregistry.reader` only on the module-created devcontainer image
+cache. To allow private devcontainer images from other Artifact Registry
+repositories, list each approved repository explicitly:
+
+```hcl
+environment_vm_artifact_registry_repositories = [
+  {
+    project_id    = "shared-images-project"
+    location      = "us-central1"
+    repository_id = "approved-devcontainers"
+  }
+]
+```
+
+The list defaults to empty and never restores project-wide access. Repository
+access applies to every image in that repository. See
+[IAM configuration](docs/iam.md#environment-vm-artifact-registry-access) for
+customer-managed IAM and upgrade instructions.

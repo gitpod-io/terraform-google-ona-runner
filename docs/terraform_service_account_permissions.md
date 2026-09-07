@@ -29,6 +29,11 @@ Pre-created service accounts avoid service-account creation permissions. When `p
 - **`roles/iam.securityAdmin`** - Sets IAM policies and audit configurations
 - **`roles/serviceusage.serviceUsageAdmin`** - Enables required GCP APIs
 
+When `environment_vm_artifact_registry_repositories` names repositories in
+other projects, the deployer also needs permission to read and set the IAM
+policy on each target repository. `roles/artifactregistry.admin` on the runner
+project does not grant access to cross-project repositories.
+
 ### Example-Specific Permissions
 Some examples require additional permissions beyond the core set:
 - **`examples/runner-with-networking`** - See [permissions.md](../examples/runner-with-networking/permissions.md) for DNS and networking requirements

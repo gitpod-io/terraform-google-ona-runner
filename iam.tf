@@ -351,12 +351,17 @@ resource "google_service_account" "environment_vm" {
   project      = var.project_id
 }
 
-# Minimal permissions for environment VMs
-resource "google_project_iam_member" "env_vm_artifact_registry" {
-  count   = local.manage_service_account_iam_policies && local.environment_vm_sa_email != "" ? 1 : 0
-  project = var.project_id
-  role    = "roles/artifactregistry.reader"
-  member  = "serviceAccount:${local.environment_vm_sa_email}"
+# Restrict environment VM image pulls to the devcontainer cache and any
+# operator-approved repositories. Repository IAM also supports repositories in
+# projects other than the runner project.
+resource "google_artifact_registry_repository_iam_member" "environment_vm_reader" {
+  for_each = local.manage_service_account_iam_policies && local.environment_vm_sa_email != "" ? local.environment_vm_artifact_registry_repositories : {}
+
+  project    = each.value.project_id
+  location   = each.value.location
+  repository = each.value.repository_id
+  role       = "roles/artifactregistry.reader"
+  member     = "serviceAccount:${local.environment_vm_sa_email}"
 }
 
 # Logging and monitoring permissions consolidated below

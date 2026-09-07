@@ -195,6 +195,16 @@ variable "custom_images" {
   }
 }
 
+variable "environment_vm_artifact_registry_repositories" {
+  description = "Additional Artifact Registry repositories that environment VMs may read"
+  type = list(object({
+    project_id    = string
+    location      = string
+    repository_id = string
+  }))
+  default = []
+}
+
 variable "enable_agents" {
   description = "Enable LLM agents execution feature in your Ona environments"
   type        = bool
