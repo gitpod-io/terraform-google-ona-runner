@@ -64,14 +64,27 @@ version. The module does not place the key material in Terraform state.
 **Account ID**: `{runner_name}-env-vm`  
 **Description**: Minimal service account for environment VMs
 
-**OAuth Scopes**: None (uses IAM permissions only)
+**OAuth Scopes**: Set by the runner when it creates each environment VM. OAuth
+scopes do not extend the IAM permissions listed here.
 
 **IAM Roles**:
-- `roles/monitoring.metricWriter` - Write custom metrics for workspace monitoring (CPU, memory, disk usage, application-specific metrics)
 - `roles/logging.logWriter` - Write logs to Cloud Logging for workspace activity and debugging
-- `roles/artifactregistry.reader` - Read container images from Artifact Registry for workspace setup
+- `roles/artifactregistry.reader` on the runner's image-cache repository - Read cached container images for workspace setup
+- `roles/storage.objectViewer` on the custom trust-bundle object, when configured - Install the customer CA certificate during bootstrap
+- `roles/cloudkms.cryptoKeyEncrypterDecrypter` on the configured KMS key, when CMEK is enabled - Support encrypted environment disk storage
 
-**Security Rationale**: Workspace VMs have minimal permissions - only metric writing, logging, and reading container images. No access to other workspaces, secrets, or infrastructure management. This limits blast radius if a workspace is compromised.
+**Security Rationale**: Workspace VMs share this identity, so its resource
+access is intentionally limited to write-only logging, bootstrap resources
+owned by this runner, and the configured CMEK key used for environment disk
+storage. Access to customer Artifact Registry repositories must be granted
+explicitly on each repository and is consequently shared by all environments
+using this service account. The key-scoped KMS grant is also shared by those
+environments.
+
+When upgrading from a version that granted project-wide Artifact Registry
+Reader, add repository-level bindings for every additional private repository
+before applying this module. Terraform continues to grant access to the
+module-created runner image cache automatically.
 
 ### 3. Proxy VM Service Account (`proxy_vm`)
 **Purpose**: Used by proxy VMs for load balancing and traffic routing
@@ -271,9 +284,9 @@ Comprehensive audit logging is enabled for security monitoring:
 ### Storage Audit Logging
 - **Service**: `storage.googleapis.com`
 - **Log Types**:
-  - `DATA_READ` - Logs storage access (exempts environment VM service account for performance)
+  - `DATA_READ` - Logs storage access
   - `DATA_WRITE` - Logs storage modifications
-- **Exemptions**: `{runner_name}-env-vm@{project_id}.iam.gserviceaccount.com` (for performance - workspace file access generates high log volume)
+- **Exemptions**: None
 
 ## Security Considerations
 
