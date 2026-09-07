@@ -115,35 +115,53 @@ write_files:
       TEMP_CONFIG_FILE="/tmp/docker-config.json.$$"
       GCS_API_URL="https://storage.googleapis.com/storage/v1/b/${DOCKER_CONFIG_BUCKET_NAME}/o/${DOCKER_CONFIG_OBJECT_NAME}?alt=media"
       
-      if curl -s -f -H "Authorization: Bearer $ACCESS_TOKEN" "$GCS_API_URL" -o "$TEMP_CONFIG_FILE"; then
-        echo "Docker config downloaded successfully to temp file"
-        
-        # Verify the downloaded file is not empty and is valid JSON
-        if [ -s "$TEMP_CONFIG_FILE" ]; then
-          if jq empty "$TEMP_CONFIG_FILE" 2>/dev/null; then
-            # Move to final location
-            mv "$TEMP_CONFIG_FILE" /var/lib/gitpod/docker-config/config.json
-            chmod 600 /var/lib/gitpod/docker-config/config.json
-            
-            echo "Docker config stored at /var/lib/gitpod/docker-config/config.json"
-            echo "Docker commands will use --config flag to access this config"
-            
-            echo "Docker config validation successful"
+      MAX_DOWNLOAD_ATTEMPTS=20
+      DOWNLOAD_RETRY_DELAY=5
+
+      for attempt in $(seq 1 "$MAX_DOWNLOAD_ATTEMPTS"); do
+        echo "Docker config download attempt $attempt/$MAX_DOWNLOAD_ATTEMPTS"
+        if curl -s -f -H "Authorization: Bearer $ACCESS_TOKEN" "$GCS_API_URL" -o "$TEMP_CONFIG_FILE"; then
+          echo "Docker config downloaded successfully to temp file"
+
+          # Verify the downloaded file is not empty and is valid JSON
+          if [ -s "$TEMP_CONFIG_FILE" ]; then
+            if jq empty "$TEMP_CONFIG_FILE" 2>/dev/null; then
+              # Move to final location
+              mv "$TEMP_CONFIG_FILE" /var/lib/gitpod/docker-config/config.json
+              chmod 600 /var/lib/gitpod/docker-config/config.json
+
+              echo "Docker config stored at /var/lib/gitpod/docker-config/config.json"
+              echo "Docker commands will use --config flag to access this config"
+
+              echo "Docker config validation successful"
+              break
+            else
+              echo "Downloaded Docker config is not valid JSON"
+              rm -f "$TEMP_CONFIG_FILE"
+              exit 1
+            fi
           else
-            echo "Downloaded Docker config is not valid JSON"
+            echo "Downloaded Docker config file is empty"
             rm -f "$TEMP_CONFIG_FILE"
             exit 1
           fi
-        else
-          echo "Downloaded Docker config file is empty"
-          rm -f "$TEMP_CONFIG_FILE"
+        fi
+
+        rm -f "$TEMP_CONFIG_FILE"
+        if [ "$attempt" -eq "$MAX_DOWNLOAD_ATTEMPTS" ]; then
+          echo "Failed to download Docker config from GCS after $MAX_DOWNLOAD_ATTEMPTS attempts"
           exit 1
         fi
-      else
-        echo "Failed to download Docker config from GCS using Storage API"
-        rm -f "$TEMP_CONFIG_FILE"
-        exit 1
-      fi
+
+        echo "Docker config is not accessible yet; retrying in $DOWNLOAD_RETRY_DELAY seconds"
+        sleep "$DOWNLOAD_RETRY_DELAY"
+        if [ "$DOWNLOAD_RETRY_DELAY" -lt 30 ]; then
+          DOWNLOAD_RETRY_DELAY=$((DOWNLOAD_RETRY_DELAY * 2))
+          if [ "$DOWNLOAD_RETRY_DELAY" -gt 30 ]; then
+            DOWNLOAD_RETRY_DELAY=30
+          fi
+        fi
+      done
 %{ else ~}
       echo "No Docker config configured, skipping download"
 %{ endif ~}
