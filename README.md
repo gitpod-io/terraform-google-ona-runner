@@ -46,15 +46,17 @@ The option defaults to `false` and is also available in the
 
 This is the first stage of restricted ingress support. The addresses are not yet
 attached to runner VMs, and enabling this option does not yet restrict ingress,
-remove the proxy or load balancer, or enable internal LLM traffic. IP attachment
-and replacement, HTTPS, and environment trust require follow-up support.
+remove the proxy or load balancer, or enable internal LLM traffic. IP attachment, replacement, and activation require follow-up support. Terraform
+prepares a shared HTTPS identity and adds its public certificate to the existing
+environment trust bundle.
 
 The hostname is `runner.ona-<runner_id>.internal`, scoped to the configured VPC.
 It uses a separate private zone so it does not shadow the existing runner domain.
 Read it from the `internal_runner_hostname` output and the addresses from
 `internal_runner_ips`. With the option disabled, these outputs are `null` and
 an empty list, respectively. Disabling the option removes the DNS zone, record,
-and reservations.
+and reservations, removes the internal TLS secrets, and removes their public
+certificate from the trust bundle.
 
 Cloud DNS returns both addresses without checking whether a runner is listening.
 Before using this name for LLM traffic, IP ownership and client connection
@@ -66,6 +68,44 @@ to the host network. See the
 [Terraform deployer permissions](docs/terraform_service_account_permissions.md#restricted-ingress-preparation)
 for the additional DNS permissions; the runner service account needs no DNS
 permissions for these Terraform-managed records.
+
+## Internal runner TLS preparation
+
+With `restrict_ingress = true`, Terraform creates a bootstrap key secret and a
+runner certificate/key secret, and publishes the public certificate in the GCS
+trust bundle. The `internal_runner_tls` output contains the public certificate
+and the endpoint, port, secret name, and exact version intended for runner
+configuration. These environment variables are not injected into runner startup
+until fixed-IP ownership, firewall rules, and compatible releases are available.
+
+The internal TLS private key travels only through ephemeral values and
+write-only inputs. It is stored in Secret Manager, not Terraform state or saved
+plans. Terraform rereads the persisted key ephemerally before issuing the
+certificate so a failed apply can retry without changing the identity. This
+applies to the new internal TLS identity; other existing certificate and secret
+resources retain their current state behavior.
+
+The runner receives a `roles/secretmanager.secretAccessor` grant on the pair
+secret when this module manages IAM. Environments receive public trust through
+GCS and need no TLS-secret access. This grant does not narrow the runner's
+existing project-level permissions. For externally managed IAM, grant the runner
+access to the pair secret before activation. The Terraform deployer needs access
+to both secrets and their versions. See
+[deployer permissions](docs/terraform_service_account_permissions.md#internal-runner-tls-preparation).
+
+Use `internal_runner_tls_generation` to rotate the key and certificate. Before
+rotation, retain the old public certificate in
+`internal_runner_additional_trust_certificates`. Apply the new identity and
+combined trust, refresh or recreate environments so they trust both identities,
+and only then select the new secret version on runners. Remove old public trust
+and retire old secret versions after all environments and runners have moved.
+Old versions remain enabled across replacements to support that overlap;
+destroying their parent secrets still deletes them.
+
+The certificate is self-signed, covers the internal DNS name, and is valid for
+ten years. Ordinary runner replacement reuses the selected identity. This module
+does not perform live certificate reload or distribute trust to already running
+environments.
 
 ## Runner secrets key lifecycle
 

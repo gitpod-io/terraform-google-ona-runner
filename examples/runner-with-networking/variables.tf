@@ -45,7 +45,7 @@ variable "runner_domain" {
 # Optional Variables
 
 variable "restrict_ingress" {
-  description = "Prepare static internal IPs and private runner DNS. Does not yet attach the IPs, enable internal LLM routing, or restrict ingress."
+  description = "Prepare static internal IPs, private DNS, and a TLS identity with public environment trust. Does not yet attach the IPs, enable internal LLM routing, or restrict ingress."
   type        = bool
   default     = false
   nullable    = false
@@ -212,4 +212,16 @@ variable "enable_cross_zone_restart" {
   description = "Enable snapshot fallback for stopped dual-disk environments when the original GCP zone has no VM capacity."
   type        = bool
   default     = false
+}
+
+variable "internal_runner_tls_generation" {
+  description = "Change to rotate the internal runner TLS identity after arranging overlapping public trust."
+  type        = number
+  default     = 1
+}
+
+variable "internal_runner_additional_trust_certificates" {
+  description = "Additional public PEM certificates retained during internal runner TLS rotation."
+  type        = list(string)
+  default     = []
 }

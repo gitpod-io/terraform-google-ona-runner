@@ -356,3 +356,20 @@ variable "use_authoritative_project_metadata" {
   type        = bool
   default     = true
 }
+
+variable "internal_runner_tls_generation" {
+  description = "Change to rotate the internal runner TLS key and certificate after arranging overlapping public trust. Used when restrict_ingress is true."
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.internal_runner_tls_generation >= 1 && floor(var.internal_runner_tls_generation) == var.internal_runner_tls_generation
+    error_message = "internal_runner_tls_generation must be a positive integer."
+  }
+}
+
+variable "internal_runner_additional_trust_certificates" {
+  description = "Additional public PEM certificates to retain in environment trust during internal runner TLS rotation."
+  type        = list(string)
+  default     = []
+}

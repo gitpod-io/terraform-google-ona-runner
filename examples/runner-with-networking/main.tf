@@ -148,6 +148,9 @@ module "runner" {
   runner_subnet_name = local.runner_subnet_name
   restrict_ingress   = var.restrict_ingress
 
+  internal_runner_tls_generation                = var.internal_runner_tls_generation
+  internal_runner_additional_trust_certificates = var.internal_runner_additional_trust_certificates
+
   development_version = var.development_version
   runner_id           = var.runner_id
   runner_token        = var.runner_token

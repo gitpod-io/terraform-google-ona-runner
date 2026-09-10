@@ -244,3 +244,9 @@ The certificate is stored as JSON:
 - `dns_setup_instructions`: Complete setup instructions
 - `vpc_name`: Name of the created VPC
 - `runner_subnet_name`: Name of the runner subnet
+
+Internal TLS provisioning is available through `restrict_ingress`. The
+`internal_runner_tls_generation`, `internal_runner_additional_trust_certificates`,
+and `internal_runner_tls` output follow the root module's
+[TLS preparation and rotation procedure](../../README.md#internal-runner-tls-preparation).
+This prepares trust and configuration without activating the internal endpoint.

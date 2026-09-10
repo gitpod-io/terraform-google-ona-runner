@@ -19,6 +19,7 @@ jobs:
       uses: hashicorp/setup-terraform@v3
       with:
         terraform_version: "1.16.2"
+        terraform_wrapper: false
 
     - name: Terraform Format Check
       run: terraform fmt -check -recursive
@@ -29,6 +30,17 @@ jobs:
     - name: Terraform Validate
       run: terraform validate
       
+    - name: Test private runner configuration
+      run: terraform test -filter=tests/internal-runner.tftest.hcl
+
+    - name: Test internal TLS lifecycle without cloud credentials
+      run: |
+        python3 tests/test_internal_runner_tls.py
+        internal_tls_google_version=$(terraform version -json | python3 -c 'import json, sys; print(json.load(sys.stdin)["provider_selections"]["registry.terraform.io/hashicorp/google"])')
+        if [ "$internal_tls_google_version" != "7.6.0" ]; then
+          python3 tests/test_internal_runner_tls.py --google-provider-version "$internal_tls_google_version"
+        fi
+
     - name: Validate Examples
       run: |
         for example_dir in examples/*/; do

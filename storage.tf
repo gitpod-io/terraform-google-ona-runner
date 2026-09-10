@@ -292,11 +292,13 @@ locals {
   # Combine certificates with proper formatting (ensure each cert ends with newline)
   combined_certificate = join("\n", compact([
     local.ca_certificate_content != "" ? trimspace(local.ca_certificate_content) : null,
-    local.secret_certificate != "" ? trimspace(local.secret_certificate) : null
+    local.secret_certificate != "" ? trimspace(local.secret_certificate) : null,
+    var.restrict_ingress ? trimspace(module.internal_runner_tls[0].certificate_pem) : null,
+    var.restrict_ingress ? join("\n", var.internal_runner_additional_trust_certificates) : null
   ]))
 
   # Determine if we need a combined certificate file
-  has_certificates = var.ca_certificate != null || (var.certificate_secret_id != "" && var.certificate_secret_read)
+  has_certificates = var.ca_certificate != null || (var.certificate_secret_id != "" && var.certificate_secret_read) || var.restrict_ingress
 }
 
 # Upload combined trust bundle certificate to GCS bucket.
