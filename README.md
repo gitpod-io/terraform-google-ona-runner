@@ -21,6 +21,17 @@ for setup instructions, configuration options, and troubleshooting.
 
 ---
 
+## Requirements
+
+The root module requires Terraform 1.11+, Google and Google Beta providers 7.6+
+(below 8.0), and TLS provider 4.4+ (below 5.0). These versions support write-only
+certificate keys and ephemeral Secret Manager reads for internal runner TLS.
+
+When upgrading an existing deployment, review the
+[Google provider 7 upgrade guide](https://registry.terraform.io/providers/hashicorp/google/latest/docs/guides/version_7_upgrade)
+and inspect a plan before applying. Keep the deployment's provider lockfile
+and update it intentionally with `terraform init -upgrade`.
+
 ## Example
 
 The [`runner-with-networking`](./examples/runner-with-networking/) example

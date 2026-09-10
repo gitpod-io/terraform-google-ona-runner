@@ -6,7 +6,7 @@ This example creates a full Ona runner infrastructure including VPC, DNS, and al
 
 Before starting, ensure you have:
 - **GCP Project** with billing enabled
-- **Terraform** >= 1.3 installed
+- **Terraform** >= 1.11 installed
 - **GCP CLI** (`gcloud`) installed
 - **Domain Name** with DNS modification capabilities
 

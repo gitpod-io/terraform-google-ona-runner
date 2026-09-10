@@ -10,7 +10,7 @@ The easiest way to get started is to open this repository in [Ona](https://ona.c
 
 If you prefer a manual setup, install the following:
 
-- [Terraform](https://terraform.io/) >= 1.0
+- [Terraform](https://terraform.io/) >= 1.11
 - [Google Cloud SDK](https://cloud.google.com/sdk/install)
 - [pre-commit](https://pre-commit.com/)
 - [terraform-docs](https://github.com/terraform-docs/terraform-docs)
