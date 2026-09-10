@@ -48,6 +48,13 @@ variable "runner_subnet_name" {
   default     = "default"
 }
 
+variable "restrict_ingress" {
+  description = "Prepare two static internal IPs and private runner DNS for restricted ingress. Does not yet attach the IPs, enable internal LLM routing, or restrict ingress."
+  type        = bool
+  default     = false
+  nullable    = false
+}
+
 variable "region" {
   description = "The region to deploy the resources"
   type        = string

@@ -49,6 +49,20 @@ To run all checks manually:
 pre-commit run --all-files
 ```
 
+### Terraform tests
+
+Run the private runner addressing tests with Terraform 1.16 or later:
+
+```bash
+terraform init -backend=false
+terraform test -filter=tests/internal-runner.tftest.hcl
+```
+
+These tests use mocked providers and plan operations, so they do not need cloud
+credentials or create resources. They cover the default configuration, enabled
+private addressing, and Shared VPC placement. Module deployments retain the
+Terraform version requirement in `versions.tf`.
+
 ### Generating Documentation
 
 Input and output tables in README files are generated automatically by `terraform-docs` via pre-commit. If you change `variables.tf` or `outputs.tf`, the tables will be updated on your next commit. You can also regenerate them manually:
