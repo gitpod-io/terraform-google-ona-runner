@@ -19,38 +19,28 @@ resource "google_compute_address" "internal_runner" {
   labels       = local.runner_labels
 }
 
-resource "google_compute_region_backend_service" "internal_runner" {
-  count = var.restrict_ingress ? 1 : 0
+resource "google_compute_region_per_instance_config" "internal_runner" {
+  provider = google-beta
+  count    = var.restrict_ingress ? 2 : 0
 
-  project               = var.project_id
-  name                  = "${var.runner_name}-internal-runner"
-  region                = var.region
-  load_balancing_scheme = "INTERNAL"
-  protocol              = "TCP"
+  project                        = var.project_id
+  region                         = var.region
+  region_instance_group_manager  = google_compute_region_instance_group_manager.runner["internal"].name
+  name                           = "${var.runner_name}-internal-${count.index}"
+  minimal_action                 = "REPLACE"
+  most_disruptive_allowed_action = "REPLACE"
+  remove_instance_on_destroy     = true
 
-  backend {
-    group          = google_compute_region_instance_group_manager.runner.instance_group
-    balancing_mode = "CONNECTION"
+  preserved_state {
+    internal_ip {
+      interface_name = "nic0"
+      auto_delete    = "NEVER"
+
+      ip_address {
+        address = google_compute_address.internal_runner[count.index].id
+      }
+    }
   }
-
-  health_checks                   = [google_compute_health_check.runner.id]
-  connection_draining_timeout_sec = 300
-}
-
-resource "google_compute_forwarding_rule" "internal_runner" {
-  count = var.restrict_ingress ? 2 : 0
-
-  project               = var.project_id
-  name                  = "${var.runner_name}-internal-runner-${count.index}"
-  region                = var.region
-  load_balancing_scheme = "INTERNAL"
-  ip_protocol           = "TCP"
-  ports                 = ["8089"]
-  backend_service       = google_compute_region_backend_service.internal_runner[0].id
-  ip_address            = google_compute_address.internal_runner[count.index].id
-  network               = "projects/${local.vpc_project_id}/global/networks/${var.vpc_name}"
-  subnetwork            = "projects/${local.vpc_project_id}/regions/${var.region}/subnetworks/${var.runner_subnet_name}"
-  labels                = local.runner_labels
 }
 
 resource "google_dns_managed_zone" "internal_runner" {

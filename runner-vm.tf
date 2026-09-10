@@ -19,6 +19,9 @@ locals {
 
   # Agent storage bucket (only created when agents are enabled)
   agent_bucket_name = var.enable_agents ? google_storage_bucket.agent_storage[0].name : ""
+
+  runner_instance_group_variant = var.restrict_ingress ? "internal" : "default"
+  runner_instance_group_name    = var.restrict_ingress ? "${var.runner_name}-internal-group" : "${var.runner_name}-group"
 }
 
 # ================================
@@ -126,7 +129,7 @@ data "cloudinit_config" "runner" {
       BUILD_CACHE_BUCKET                   = google_storage_bucket.build_cache.name
       PROXY_DOMAIN                         = var.runner_domain
       SSH_PORT                             = var.ssh_port
-      INSTANCE_GROUP_NAME                  = "${var.runner_name}-group"
+      INSTANCE_GROUP_NAME                  = local.runner_instance_group_name
       RUNNER_IMAGE_URL                     = var.development_version != "" ? local.runner_dev_image : local.runner_image
       DEVELOPMENT_VERSION                  = var.development_version
       PUBSUB_SUBSCRIPTION_ID               = google_pubsub_subscription.compute_events.name
@@ -259,8 +262,9 @@ resource "google_compute_instance_template" "runner" {
 resource "google_compute_region_instance_group_manager" "runner" {
   # enables features like min_ready_sec
   provider = google-beta
+  for_each = toset([local.runner_instance_group_variant])
 
-  name                      = "${var.runner_name}-group"
+  name                      = local.runner_instance_group_name
   region                    = var.region
   project                   = var.project_id
   base_instance_name        = var.runner_name
@@ -291,22 +295,20 @@ resource "google_compute_region_instance_group_manager" "runner" {
   }
 
   update_policy {
-    # Use rolling update for zero-downtime deployments
+    # Stateful runner IPs require in-place recreation without surge or redistribution.
     type                         = "PROACTIVE"
-    instance_redistribution_type = "PROACTIVE"
+    instance_redistribution_type = var.restrict_ingress ? "NONE" : "PROACTIVE"
 
-    # Configurable actions for different update scenarios
-    minimal_action                 = var.runner_vm_config.update_policy_config.minimal_action
+    minimal_action                 = var.restrict_ingress ? "REPLACE" : var.runner_vm_config.update_policy_config.minimal_action
     most_disruptive_allowed_action = "REPLACE"
 
-    # Rolling update configuration optimized for self-updating runner
-    # Surge-first strategy: create new instances before destroying old ones
-    # This ensures the updater instance survives until the very end
-    max_surge_fixed       = max(length(var.zones), 2)
-    max_unavailable_fixed = var.runner_vm_config.update_policy_config.max_unavailable == 0 ? 0 : max(length(var.zones), var.runner_vm_config.update_policy_config.max_unavailable)
+    max_surge_fixed = var.restrict_ingress ? 0 : max(length(var.zones), 2)
+    max_unavailable_fixed = var.restrict_ingress ? 1 : (
+      var.runner_vm_config.update_policy_config.max_unavailable == 0 ? 0 :
+      max(length(var.zones), var.runner_vm_config.update_policy_config.max_unavailable)
+    )
 
-    # Use SUBSTITUTE method to create new instances before destroying old ones
-    replacement_method = "SUBSTITUTE"
+    replacement_method = var.restrict_ingress ? "RECREATE" : "SUBSTITUTE"
 
     # Slower, safer updates to ensure stability - aligned with health check timing
     min_ready_sec = 120 # 2 minutes to allow for container startup and initial health checks
@@ -326,11 +328,18 @@ resource "google_compute_region_instance_group_manager" "runner" {
   }
 }
 
+moved {
+  from = google_compute_region_instance_group_manager.runner
+  to   = google_compute_region_instance_group_manager.runner["default"]
+}
+
 # Create autoscaler for the instance group
 resource "google_compute_region_autoscaler" "runner" {
+  count = var.restrict_ingress ? 0 : 1
+
   name    = "${var.runner_name}-autoscaler"
   region  = var.region
-  target  = google_compute_region_instance_group_manager.runner.id
+  target  = google_compute_region_instance_group_manager.runner["default"].id
   project = var.project_id
 
   autoscaling_policy {
@@ -342,6 +351,11 @@ resource "google_compute_region_autoscaler" "runner" {
       target = 0.7
     }
   }
+}
+
+moved {
+  from = google_compute_region_autoscaler.runner
+  to   = google_compute_region_autoscaler.runner[0]
 }
 
 # Health check for runner service

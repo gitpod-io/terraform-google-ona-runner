@@ -67,22 +67,6 @@ override_resource {
 }
 
 override_resource {
-  target          = google_compute_region_instance_group_manager.runner
-  override_during = plan
-  values = {
-    instance_group = "projects/runner-project/regions/us-central1/instanceGroups/test-runner-group"
-  }
-}
-
-override_resource {
-  target          = google_compute_region_backend_service.internal_runner[0]
-  override_during = plan
-  values = {
-    id = "projects/runner-project/regions/us-central1/backendServices/test-runner-internal-runner"
-  }
-}
-
-override_resource {
   target          = tls_self_signed_cert.internal_runner[0]
   override_during = plan
   values = {
@@ -112,8 +96,8 @@ run "disabled_by_default" {
   assert {
     condition = (
       length(google_compute_address.internal_runner) == 0 &&
-      length(google_compute_region_backend_service.internal_runner) == 0 &&
-      length(google_compute_forwarding_rule.internal_runner) == 0 &&
+      length(google_compute_region_per_instance_config.internal_runner) == 0 &&
+      length(google_compute_region_autoscaler.runner) == 1 &&
       length(google_dns_managed_zone.internal_runner) == 0 &&
       length(google_dns_record_set.internal_runner) == 0 &&
       length(google_compute_firewall.allow_environments_to_internal_runner) == 0 &&
@@ -127,6 +111,19 @@ run "disabled_by_default" {
       local.internal_runner_endpoint_configuration == null
     )
     error_message = "Default deployments must not reserve runner IPs or create private DNS."
+  }
+
+  assert {
+    condition = (
+      coalesce(one(google_compute_region_instance_group_manager.runner["default"].update_policy).instance_redistribution_type, "PROACTIVE") == "PROACTIVE" &&
+      one(google_compute_region_instance_group_manager.runner["default"].update_policy).minimal_action == "REPLACE" &&
+      one(google_compute_region_instance_group_manager.runner["default"].update_policy).max_surge_fixed == 2 &&
+      one(google_compute_region_instance_group_manager.runner["default"].update_policy).max_unavailable_fixed == 0 &&
+      coalesce(one(google_compute_region_instance_group_manager.runner["default"].update_policy).replacement_method, "SUBSTITUTE") == "SUBSTITUTE" &&
+      output.runner_instance_group_name == "test-runner-group" &&
+      local.runner_target_instances == 1
+    )
+    error_message = "Default deployments must retain the existing autoscaled, surge-first runner MIG policy."
   }
 }
 
@@ -150,29 +147,31 @@ run "private_runner_addresses" {
 
   assert {
     condition = (
-      length(google_compute_region_backend_service.internal_runner) == 1 &&
-      google_compute_region_backend_service.internal_runner[0].project == "runner-project" &&
-      google_compute_region_backend_service.internal_runner[0].region == "us-central1" &&
-      google_compute_region_backend_service.internal_runner[0].load_balancing_scheme == "INTERNAL" &&
-      google_compute_region_backend_service.internal_runner[0].protocol == "TCP" &&
-      one(google_compute_region_backend_service.internal_runner[0].backend).group ==
-      "projects/runner-project/regions/us-central1/instanceGroups/test-runner-group" &&
-      one(google_compute_region_backend_service.internal_runner[0].backend).balancing_mode == "CONNECTION" &&
-      length(google_compute_forwarding_rule.internal_runner) == 2 &&
+      length(google_compute_region_per_instance_config.internal_runner) == 2 &&
+      length(google_compute_region_autoscaler.runner) == 0 &&
       alltrue([
-        for index, rule in google_compute_forwarding_rule.internal_runner :
-        rule.project == "runner-project" &&
-        rule.region == "us-central1" &&
-        rule.load_balancing_scheme == "INTERNAL" &&
-        rule.ip_protocol == "TCP" &&
-        rule.ports == toset(["8089"]) &&
-        rule.backend_service == "projects/runner-project/regions/us-central1/backendServices/test-runner-internal-runner" &&
-        rule.ip_address == "projects/runner-project/regions/us-central1/addresses/test-runner-internal-${index}" &&
-        rule.network == "projects/runner-project/global/networks/runner-vpc" &&
-        rule.subnetwork == "projects/runner-project/regions/us-central1/subnetworks/runner-subnet"
-      ])
+        for index, instance in google_compute_region_per_instance_config.internal_runner :
+        instance.project == "runner-project" &&
+        instance.region == "us-central1" &&
+        instance.region_instance_group_manager == "test-runner-internal-group" &&
+        instance.name == "test-runner-internal-${index}" &&
+        instance.minimal_action == "REPLACE" &&
+        instance.most_disruptive_allowed_action == "REPLACE" &&
+        instance.remove_instance_on_destroy &&
+        one(one(instance.preserved_state).internal_ip).interface_name == "nic0" &&
+        one(one(instance.preserved_state).internal_ip).auto_delete == "NEVER" &&
+        one(one(one(instance.preserved_state).internal_ip).ip_address).address ==
+        "projects/runner-project/regions/us-central1/addresses/test-runner-internal-${index}"
+      ]) &&
+      one(google_compute_region_instance_group_manager.runner["internal"].update_policy).instance_redistribution_type == "NONE" &&
+      one(google_compute_region_instance_group_manager.runner["internal"].update_policy).minimal_action == "REPLACE" &&
+      one(google_compute_region_instance_group_manager.runner["internal"].update_policy).max_surge_fixed == 0 &&
+      one(google_compute_region_instance_group_manager.runner["internal"].update_policy).max_unavailable_fixed == 1 &&
+      one(google_compute_region_instance_group_manager.runner["internal"].update_policy).replacement_method == "RECREATE" &&
+      output.runner_instance_group_name == "test-runner-internal-group" &&
+      local.runner_target_instances == 2
     )
-    error_message = "Both reserved addresses must forward internal TCP port 8089 to the runner MIG."
+    error_message = "The restricted runner MIG must contain two fixed instances using the reserved internal IPs."
   }
 
   assert {
@@ -243,15 +242,14 @@ run "shared_vpc" {
   assert {
     condition = (
       alltrue([
-        for rule in google_compute_forwarding_rule.internal_runner :
-        rule.project == "runner-project" &&
-        rule.network == "projects/network-project/global/networks/runner-vpc" &&
-        rule.subnetwork == "projects/network-project/regions/us-central1/subnetworks/runner-subnet"
+        for index, instance in google_compute_region_per_instance_config.internal_runner :
+        one(one(one(instance.preserved_state).internal_ip).ip_address).address ==
+        "projects/runner-project/regions/us-central1/addresses/test-runner-internal-${index}"
       ]) &&
       google_compute_firewall.allow_environments_to_internal_runner[0].project == "network-project" &&
       google_compute_firewall.allow_environments_to_internal_runner[0].network == "runner-vpc"
     )
-    error_message = "Shared VPC forwarding rules and firewall access must use the host project's network."
+    error_message = "Shared VPC runner instances must use the service-project reservations and host-project firewall."
   }
 }
 
