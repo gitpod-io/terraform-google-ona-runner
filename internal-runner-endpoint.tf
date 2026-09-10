@@ -1,5 +1,11 @@
 locals {
   internal_runner_hostname = var.restrict_ingress ? trimsuffix(google_dns_record_set.internal_runner[0].name, ".") : null
+  internal_runner_endpoint_configuration = var.restrict_ingress ? {
+    endpoint           = "https://${local.internal_runner_hostname}:8089"
+    llm_port           = "8089"
+    tls_secret         = google_secret_manager_secret.internal_runner_tls["tls"].secret_id
+    tls_secret_version = google_secret_manager_secret_version.internal_runner_tls[0].version
+  } : null
 }
 
 resource "google_compute_address" "internal_runner" {

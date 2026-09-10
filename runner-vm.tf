@@ -145,6 +145,10 @@ data "cloudinit_config" "runner" {
       AGENT_BUCKET_NAME                    = local.agent_bucket_name
       RUNNER_ASSETS_BUCKET_NAME            = google_storage_bucket.runner_assets.name
       MIG_WARM_POOL_ENABLED                = true
+      INTERNAL_RUNNER_ENDPOINT             = local.internal_runner_endpoint_configuration != null ? local.internal_runner_endpoint_configuration.endpoint : ""
+      INTERNAL_RUNNER_LLM_PORT             = local.internal_runner_endpoint_configuration != null ? local.internal_runner_endpoint_configuration.llm_port : ""
+      INTERNAL_RUNNER_TLS_SECRET           = local.internal_runner_endpoint_configuration != null ? local.internal_runner_endpoint_configuration.tls_secret : ""
+      INTERNAL_RUNNER_TLS_SECRET_VERSION   = local.internal_runner_endpoint_configuration != null ? local.internal_runner_endpoint_configuration.tls_secret_version : ""
       # Proxy configuration
       HTTP_PROXY  = local.http_proxy
       HTTPS_PROXY = local.https_proxy

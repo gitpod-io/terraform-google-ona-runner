@@ -244,9 +244,3 @@ The certificate is stored as JSON:
 - `dns_setup_instructions`: Complete setup instructions
 - `vpc_name`: Name of the created VPC
 - `runner_subnet_name`: Name of the runner subnet
-
-Internal runner endpoint provisioning is available through `restrict_ingress`.
-The `internal_runner_endpoint_version` input and `internal_runner_endpoint`
-output follow the root module's [endpoint preparation and rotation
-procedure](../../README.md#internal-runner-endpoint-preparation). This prepares
-trust and configuration without activating the internal endpoint.

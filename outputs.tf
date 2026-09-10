@@ -58,16 +58,3 @@ output "internal_runner_hostname" {
   description = "Private DNS hostname for the reserved runner IPs. Null when restrict_ingress is disabled."
   value       = local.internal_runner_hostname
 }
-
-output "internal_runner_endpoint" {
-  description = "Prepared internal runner endpoint identity and configuration. Activation still requires IP ownership, firewall rules, and compatible runner/environment releases. Contains no private key."
-  value = var.restrict_ingress ? {
-    certificate_pem = tls_self_signed_cert.internal_runner[0].cert_pem
-    environment = {
-      INTERNAL_RUNNER_ENDPOINT           = "https://${local.internal_runner_hostname}:8089"
-      INTERNAL_RUNNER_LLM_PORT           = "8089"
-      INTERNAL_RUNNER_TLS_SECRET         = google_secret_manager_secret.internal_runner_tls["tls"].secret_id
-      INTERNAL_RUNNER_TLS_SECRET_VERSION = google_secret_manager_secret_version.internal_runner_tls[0].version
-    }
-  } : null
-}

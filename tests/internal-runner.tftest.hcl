@@ -103,7 +103,7 @@ run "disabled_by_default" {
       length(google_secret_manager_secret_version.internal_runner_tls) == 0 &&
       length(tls_self_signed_cert.internal_runner) == 0 &&
       length(google_secret_manager_secret_iam_member.internal_runner_tls) == 0 &&
-      output.internal_runner_endpoint == null
+      local.internal_runner_endpoint_configuration == null
     )
     error_message = "Default deployments must not reserve runner IPs or create private DNS."
   }
@@ -190,16 +190,15 @@ run "tls_identity_and_public_trust" {
       length(google_secret_manager_secret_version.internal_runner_key) == 1 &&
       length(google_secret_manager_secret_version.internal_runner_tls) == 1 &&
       length(tls_self_signed_cert.internal_runner) == 1 &&
-      output.internal_runner_endpoint.certificate_pem == "current-public-certificate" &&
-      tomap(output.internal_runner_endpoint.environment) == tomap({
-        INTERNAL_RUNNER_ENDPOINT           = "https://runner.ona-00000000-0000-4000-8000-000000000001.internal:8089"
-        INTERNAL_RUNNER_LLM_PORT           = "8089"
-        INTERNAL_RUNNER_TLS_SECRET         = "00000000-0000-4000-8000-000000000001-internal-llm-tls"
-        INTERNAL_RUNNER_TLS_SECRET_VERSION = "7"
+      tomap(local.internal_runner_endpoint_configuration) == tomap({
+        endpoint           = "https://runner.ona-00000000-0000-4000-8000-000000000001.internal:8089"
+        llm_port           = "8089"
+        tls_secret         = "00000000-0000-4000-8000-000000000001-internal-llm-tls"
+        tls_secret_version = "7"
       }) &&
       google_storage_bucket_object.trust_bundle[0].content == "current-public-certificate"
     )
-    error_message = "The prepared runner configuration must pin the identity version and publish its public certificate."
+    error_message = "The runner must receive the internal endpoint configuration and trust its public certificate."
   }
 
   assert {
