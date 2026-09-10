@@ -245,8 +245,8 @@ The certificate is stored as JSON:
 - `vpc_name`: Name of the created VPC
 - `runner_subnet_name`: Name of the runner subnet
 
-Internal TLS provisioning is available through `restrict_ingress`. The
-`internal_runner_tls_version` input and `internal_runner_tls` output follow the
-root module's [TLS preparation and rotation
-procedure](../../README.md#internal-runner-tls-preparation). This prepares trust
-and configuration without activating the internal endpoint.
+Internal runner endpoint provisioning is available through `restrict_ingress`.
+The `internal_runner_endpoint_version` input and `internal_runner_endpoint`
+output follow the root module's [endpoint preparation and rotation
+procedure](../../README.md#internal-runner-endpoint-preparation). This prepares
+trust and configuration without activating the internal endpoint.

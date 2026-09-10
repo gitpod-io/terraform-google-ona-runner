@@ -69,11 +69,11 @@ to the host network. See the
 for the additional DNS permissions; the runner service account needs no DNS
 permissions for these Terraform-managed records.
 
-## Internal runner TLS preparation
+## Internal runner endpoint preparation
 
 With `restrict_ingress = true`, Terraform creates a bootstrap key secret and a
 runner certificate/key secret, and publishes the public certificate in the GCS
-trust bundle. The `internal_runner_tls` output contains the public certificate
+trust bundle. The `internal_runner_endpoint` output contains the public certificate
 and the endpoint, port, secret name, and exact version intended for runner
 configuration. These environment variables are not injected into runner startup
 until fixed-IP ownership, firewall rules, and compatible releases are available.
@@ -91,11 +91,11 @@ GCS and need no TLS-secret access. This grant does not narrow the runner's
 existing project-level permissions. For externally managed IAM, grant the runner
 access to the pair secret before activation. The Terraform deployer needs access
 to both secrets and their versions. See
-[deployer permissions](docs/terraform_service_account_permissions.md#internal-runner-tls-preparation).
+[deployer permissions](docs/terraform_service_account_permissions.md#internal-runner-endpoint-preparation).
 
-Increase `internal_runner_tls_version` to rotate the key and certificate.
+Increase `internal_runner_endpoint_version` to rotate the key and certificate.
 Terraform writes a new Secret Manager version, updates the exact version in the
-`internal_runner_tls` output, and publishes the new public certificate in the
+`internal_runner_endpoint` output, and publishes the new public certificate in the
 trust bundle. Endpoint activation and live certificate reload are not part of
 this preparation stage.
 

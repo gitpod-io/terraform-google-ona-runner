@@ -123,7 +123,7 @@ def main(google_version):
                 "region": {"default": "us-central1"},
                 "runner_id": {"default": prefix},
                 "restrict_ingress": {"default": True},
-                "internal_runner_tls_version": {"default": version},
+                "internal_runner_endpoint_version": {"default": version},
             },
             "locals": {
                 "internal_runner_hostname": "runner.synthetic.internal",

@@ -59,8 +59,8 @@ output "internal_runner_hostname" {
   value       = local.internal_runner_hostname
 }
 
-output "internal_runner_tls" {
-  description = "Prepared internal HTTPS identity and runner configuration. Activation still requires IP ownership, firewall rules, and compatible runner/environment releases. Contains no private key."
+output "internal_runner_endpoint" {
+  description = "Prepared internal runner endpoint identity and configuration. Activation still requires IP ownership, firewall rules, and compatible runner/environment releases. Contains no private key."
   value = var.restrict_ingress ? {
     certificate_pem = tls_self_signed_cert.internal_runner[0].cert_pem
     environment = {

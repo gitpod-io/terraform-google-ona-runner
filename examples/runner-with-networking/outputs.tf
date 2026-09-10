@@ -45,7 +45,7 @@ output "internal_runner_hostname" {
   value       = module.runner.internal_runner_hostname
 }
 
-output "internal_runner_tls" {
-  description = "Prepared internal HTTPS certificate and runner configuration; requires IP ownership and compatible releases before activation."
-  value       = module.runner.internal_runner_tls
+output "internal_runner_endpoint" {
+  description = "Prepared internal runner endpoint identity and configuration; requires IP ownership and compatible releases before activation."
+  value       = module.runner.internal_runner_endpoint
 }

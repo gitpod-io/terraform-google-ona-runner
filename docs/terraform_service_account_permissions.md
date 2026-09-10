@@ -449,7 +449,7 @@ If using a GCS bucket for Terraform state, add the service account to the bucket
 gsutil iam ch serviceAccount:gitpod-terraform@your-project.iam.gserviceaccount.com:roles/storage.objectAdmin gs://your-backend-bucket
 ```
 
-## Internal runner TLS preparation
+## Internal runner endpoint preparation
 
 When `restrict_ingress` is enabled, the deployer creates two Secret Manager
 secrets in the runner project: `<runner_id>-internal-llm-key` and

@@ -214,8 +214,8 @@ variable "enable_cross_zone_restart" {
   default     = false
 }
 
-variable "internal_runner_tls_version" {
-  description = "Increase to rotate the internal runner TLS key and certificate."
+variable "internal_runner_endpoint_version" {
+  description = "Increase to rotate the internal runner endpoint's TLS key and certificate."
   type        = number
   default     = 1
 }
