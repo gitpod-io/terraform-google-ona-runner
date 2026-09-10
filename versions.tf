@@ -1,14 +1,14 @@
 terraform {
-  required_version = ">= 1.3"
+  required_version = ">= 1.11"
 
   required_providers {
     google = {
       source  = "hashicorp/google"
-      version = "~> 6.0"
+      version = ">= 7.6, < 8.0"
     }
     google-beta = {
       source  = "hashicorp/google-beta"
-      version = "~> 6.0"
+      version = ">= 7.6, < 8.0"
     }
     null = {
       source  = "hashicorp/null"
@@ -24,7 +24,7 @@ terraform {
     }
     tls = {
       source  = "hashicorp/tls"
-      version = "~> 4.2"
+      version = ">= 4.4, < 5.0"
     }
     cloudinit = {
       source  = "hashicorp/cloudinit"
