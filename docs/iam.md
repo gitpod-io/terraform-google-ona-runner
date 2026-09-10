@@ -93,7 +93,7 @@ When using pre-created service accounts, these roles must be created beforehand 
 - **Title**: Ona Runner
 - **Description**: Minimal permissions for runner infrastructure management
 
-**Permissions** (100 total):
+**Permissions** (103 total):
 ```
 # Instance lifecycle management
 compute.instances.create
@@ -127,9 +127,12 @@ compute.disks.useReadOnly
 labels to initialized boot or data disks, including hyperdisk boost labels.
 
 # Snapshot management
+compute.snapshots.create
 compute.snapshots.delete
 compute.snapshots.get
 compute.snapshots.list
+compute.snapshots.setLabels
+compute.snapshots.useReadOnly
 
 # Network resources
 compute.networks.get
@@ -448,9 +451,12 @@ includedPermissions:
 - compute.disks.createSnapshot
 - compute.disks.use
 - compute.disks.useReadOnly
+- compute.snapshots.create
 - compute.snapshots.delete
 - compute.snapshots.get
 - compute.snapshots.list
+- compute.snapshots.setLabels
+- compute.snapshots.useReadOnly
 - compute.networks.get
 - compute.networks.list
 - compute.networks.use
