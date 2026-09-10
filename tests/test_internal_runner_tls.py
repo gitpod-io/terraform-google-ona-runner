@@ -86,8 +86,11 @@ class SecretManager(BaseHTTPRequestHandler):
 def main(google_version):
     root = Path(tempfile.mkdtemp(prefix="internal-runner-tls-"))
     root.chmod(0o700)
-    shutil.copyfile(Path(__file__).resolve().parents[1] / "internal-runner-tls.tf",
-                    root / "internal-runner-tls.tf")
+    endpoint_file = Path(__file__).resolve().parents[1] / "internal-runner-endpoint.tf"
+    endpoint_source = endpoint_file.read_text()
+    tls_start = endpoint_source.index(
+        'resource "google_secret_manager_secret" "internal_runner_tls"')
+    (root / "internal-runner-endpoint.tf").write_text(endpoint_source[tls_start:])
     server = ThreadingHTTPServer(("127.0.0.1", 0), SecretManager)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()

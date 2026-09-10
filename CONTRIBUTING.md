@@ -67,9 +67,10 @@ Terraform version requirement in `versions.tf`.
 ### Internal TLS lifecycle test
 
 Run `python3 tests/test_internal_runner_tls.py` with Terraform 1.11+, Python 3,
-and OpenSSL installed. It loads the production `internal-runner-tls.tf` resources
-into an isolated fixture with synthetic DNS and IAM inputs, using Google 7.6.0 and
-TLS 4.4.0 providers against a local Secret Manager HTTP test server. Use
+and OpenSSL installed. It loads the TLS resources from the production
+`internal-runner-endpoint.tf` into an isolated fixture with synthetic DNS and IAM
+inputs, using Google 7.6.0 and TLS 4.4.0 providers against a local Secret Manager
+HTTP test server. Use
 `--google-provider-version=<version>` to verify another Google provider version. It generates
 only test identities, uses no cloud credentials, and removes its temporary
 working directory on completion.
