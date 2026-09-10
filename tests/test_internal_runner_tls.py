@@ -1,4 +1,4 @@
-"""Exercise the TLS module with real providers and a local Secret Manager API."""
+"""Exercise the root TLS resources with real providers and a local Secret Manager API."""
 
 import argparse
 import base64
@@ -86,6 +86,8 @@ class SecretManager(BaseHTTPRequestHandler):
 def main(google_version):
     root = Path(tempfile.mkdtemp(prefix="internal-runner-tls-"))
     root.chmod(0o700)
+    shutil.copyfile(Path(__file__).resolve().parents[1] / "internal-runner-tls.tf",
+                    root / "internal-runner-tls.tf")
     server = ThreadingHTTPServer(("127.0.0.1", 0), SecretManager)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -113,16 +115,30 @@ def main(google_version):
                 "project": "synthetic-project", "access_token": "local-test-only",
                 "secret_manager_custom_endpoint": f"http://127.0.0.1:{server.server_port}/v1/",
             }},
-            "module": {"identity": {
-                "source": str(Path(__file__).resolve().parents[1] / "modules/internal-runner-tls"),
-                "project_id": "synthetic-project", "region": "us-central1",
-                "secret_prefix": prefix, "hostname": "runner.synthetic.internal", "generation": generation,
+            "variable": {
+                "project_id": {"default": "synthetic-project"},
+                "region": {"default": "us-central1"},
+                "runner_id": {"default": prefix},
+                "restrict_ingress": {"default": True},
+                "internal_runner_tls_generation": {"default": generation},
+            },
+            "locals": {
+                "internal_runner_hostname": "runner.synthetic.internal",
                 "kms_key_name": kms_key_name,
-            }},
+                "runner_labels": {},
+                "manage_service_account_iam_policies": False,
+                "runner_sa_email": "unused@synthetic-project.iam.gserviceaccount.com",
+            },
+            "resource": {"google_kms_crypto_key_iam_member": {"google_secretmanager": {
+                "count": 0,
+                "crypto_key_id": "projects/synthetic-project/locations/us-central1/keyRings/runner/cryptoKeys/secrets",
+                "role": "roles/cloudkms.cryptoKeyEncrypterDecrypter",
+                "member": "serviceAccount:unused@synthetic-project.iam.gserviceaccount.com",
+            }}},
             "output": {
-                "certificate": {"value": "${module.identity.certificate_pem}"},
-                "secret": {"value": "${module.identity.secret_id}"},
-                "version": {"value": "${module.identity.secret_version}"},
+                "certificate": {"value": "${tls_self_signed_cert.internal_runner[0].cert_pem}"},
+                "secret": {"value": '${google_secret_manager_secret.internal_runner_tls["tls"].id}'},
+                "version": {"value": "${google_secret_manager_secret_version.internal_runner_tls[0].version}"},
             },
         }
         (root / "main.tf.json").write_text(json.dumps(config))
@@ -183,34 +199,34 @@ def main(google_version):
         SecretManager.fail_pair = False
         tf("apply", "-auto-approve", "-input=false", "-no-color")
         pair_name = verify_pair()
-        assert pair_name.endswith("/runner-tls/versions/1")
+        assert pair_name.endswith("/runner-internal-llm-tls/versions/1")
         pair = json.loads(SecretManager.payloads[pair_name])
         assert pair["certificate"] == issued_certificate, "Retry replaced an already-issued certificate"
-        assert pair["privateKey"] == SecretManager.payloads["projects/synthetic-project/secrets/runner-key/versions/1"]
-        assert "projects/synthetic-project/secrets/runner-key/versions/2" not in SecretManager.records
+        assert pair["privateKey"] == SecretManager.payloads["projects/synthetic-project/secrets/runner-internal-llm-key/versions/1"]
+        assert "projects/synthetic-project/secrets/runner-internal-llm-key/versions/2" not in SecretManager.records
         for suffix in ["key", "tls"]:
-            secret = SecretManager.records[f"projects/synthetic-project/secrets/runner-{suffix}"]
+            secret = SecretManager.records[f"projects/synthetic-project/secrets/runner-internal-llm-{suffix}"]
             assert secret["replication"] == {"automatic": {}}, "Expected automatic replication without CMEK"
         tf("plan", "-detailed-exitcode", "-out=unchanged.tfplan", "-input=false", "-no-color")
         verify_no_private_state()
         print("PASS: interrupted initial saved-plan apply, retry, unchanged plan, private-state exclusion", flush=True)
 
         SecretManager.fail_pair = True
-        replace = "-replace=module.identity.google_secret_manager_secret_version.pair"
+        replace = "-replace=google_secret_manager_secret_version.internal_runner_tls[0]"
         failed = tf("apply", "-auto-approve", "-input=false", "-no-color", replace, allowed=(1,))
         assert "Injected pair write failure" in failed.stderr, "Replacement failure did not reach the pair write"
         verify_no_private_state()
         SecretManager.fail_pair = False
         tf("apply", "-auto-approve", "-input=false", "-no-color", replace)
-        assert verify_pair().endswith("/runner-tls/versions/2")
+        assert verify_pair().endswith("/runner-internal-llm-tls/versions/2")
         print("PASS: interrupted pair replacement and retry preserve the matching identity", flush=True)
 
         write_config(generation=2)
         tf("plan", "-out=rotation.tfplan", "-input=false", "-no-color")
         tf("apply", "-input=false", "-no-color", "rotation.tfplan")
-        assert verify_pair().endswith("/runner-tls/versions/3")
+        assert verify_pair().endswith("/runner-internal-llm-tls/versions/3")
         keys = SecretManager.payloads
-        assert keys["projects/synthetic-project/secrets/runner-key/versions/1"] != keys["projects/synthetic-project/secrets/runner-key/versions/2"]
+        assert keys["projects/synthetic-project/secrets/runner-internal-llm-key/versions/1"] != keys["projects/synthetic-project/secrets/runner-internal-llm-key/versions/2"]
         tf("plan", "-detailed-exitcode", "-input=false", "-no-color")
         verify_no_private_state()
         assert all(record["state"] == "ENABLED" for name, record in SecretManager.records.items()
@@ -220,9 +236,9 @@ def main(google_version):
         kms_key_name = "projects/key-project/locations/us-central1/keyRings/runner/cryptoKeys/secrets"
         write_config(generation=2, prefix="replacement", kms_key_name=kms_key_name)
         tf("apply", "-auto-approve", "-input=false", "-no-color")
-        assert verify_pair().endswith("/replacement-tls/versions/1")
+        assert verify_pair().endswith("/replacement-internal-llm-tls/versions/1")
         for suffix in ["key", "tls"]:
-            secret = SecretManager.records[f"projects/synthetic-project/secrets/replacement-{suffix}"]
+            secret = SecretManager.records[f"projects/synthetic-project/secrets/replacement-internal-llm-{suffix}"]
             assert secret["replication"].get("automatic") is None, "CMEK must not use automatic replication"
             assert secret["replication"]["userManaged"] == {"replicas": [{
                 "location": "us-central1", "customerManagedEncryption": {"kmsKeyName": kms_key_name}

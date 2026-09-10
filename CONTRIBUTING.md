@@ -58,7 +58,7 @@ terraform init -backend=false
 terraform test -filter=tests/internal-runner.tftest.hcl
 ```
 
-These tests use real provider schemas with resource, data, and module overrides
+These tests use real provider schemas with resource and data overrides
 and plan operations, so they do not need cloud credentials or create resources.
 They cover defaults, private addressing, Shared VPC placement, public trust,
 versioned runner configuration, and managed versus externally managed TLS IAM. Module deployments retain the
@@ -67,7 +67,8 @@ Terraform version requirement in `versions.tf`.
 ### Internal TLS lifecycle test
 
 Run `python3 tests/test_internal_runner_tls.py` with Terraform 1.11+, Python 3,
-and OpenSSL installed. It exercises the actual TLS module using Google 7.6.0 and
+and OpenSSL installed. It loads the production `internal-runner-tls.tf` resources
+into an isolated fixture with synthetic DNS and IAM inputs, using Google 7.6.0 and
 TLS 4.4.0 providers against a local Secret Manager HTTP test server. Use
 `--google-provider-version=<version>` to verify another Google provider version. It generates
 only test identities, uses no cloud credentials, and removes its temporary

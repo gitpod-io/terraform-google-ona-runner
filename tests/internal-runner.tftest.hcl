@@ -1,4 +1,4 @@
-# Ephemeral resource schemas require real providers, even with a module override.
+# Ephemeral resource schemas require real providers, even with resource overrides.
 # Data reads are overridden below; these plan tests use no cloud credentials.
 provider "google" {
   project      = "runner-project"
@@ -64,13 +64,27 @@ override_resource {
   }
 }
 
-override_module {
-  target = module.internal_runner_tls[0]
-  outputs = {
-    certificate_pem = "current-public-certificate"
-    secret_id       = "projects/runner-project/secrets/internal-llm-tls"
-    secret_name     = "internal-llm-tls"
-    secret_version  = "7"
+override_resource {
+  target          = tls_self_signed_cert.internal_runner[0]
+  override_during = plan
+  values = {
+    cert_pem = "current-public-certificate"
+  }
+}
+
+override_resource {
+  target          = google_secret_manager_secret.internal_runner_tls["tls"]
+  override_during = plan
+  values = {
+    id = "projects/runner-project/secrets/00000000-0000-4000-8000-000000000001-internal-llm-tls"
+  }
+}
+
+override_resource {
+  target          = google_secret_manager_secret_version.internal_runner_tls[0]
+  override_during = plan
+  values = {
+    version = "7"
   }
 }
 
@@ -84,7 +98,10 @@ run "disabled_by_default" {
       length(google_dns_record_set.internal_runner) == 0 &&
       length(output.internal_runner_ips) == 0 &&
       output.internal_runner_hostname == null &&
-      length(module.internal_runner_tls) == 0 &&
+      length(google_secret_manager_secret.internal_runner_tls) == 0 &&
+      length(google_secret_manager_secret_version.internal_runner_key) == 0 &&
+      length(google_secret_manager_secret_version.internal_runner_tls) == 0 &&
+      length(tls_self_signed_cert.internal_runner) == 0 &&
       length(google_secret_manager_secret_iam_member.internal_runner_tls) == 0 &&
       output.internal_runner_tls == null
     )
@@ -170,12 +187,15 @@ run "tls_identity_and_public_trust" {
 
   assert {
     condition = (
-      length(module.internal_runner_tls) == 1 &&
+      length(google_secret_manager_secret.internal_runner_tls) == 2 &&
+      length(google_secret_manager_secret_version.internal_runner_key) == 1 &&
+      length(google_secret_manager_secret_version.internal_runner_tls) == 1 &&
+      length(tls_self_signed_cert.internal_runner) == 1 &&
       output.internal_runner_tls.certificate_pem == "current-public-certificate" &&
       tomap(output.internal_runner_tls.environment) == tomap({
         INTERNAL_RUNNER_ENDPOINT           = "https://runner.ona-00000000-0000-4000-8000-000000000001.internal:8089"
         INTERNAL_RUNNER_LLM_PORT           = "8089"
-        INTERNAL_RUNNER_TLS_SECRET         = "internal-llm-tls"
+        INTERNAL_RUNNER_TLS_SECRET         = "00000000-0000-4000-8000-000000000001-internal-llm-tls"
         INTERNAL_RUNNER_TLS_SECRET_VERSION = "7"
       }) &&
       google_storage_bucket_object.trust_bundle[0].content == "current-public-certificate\nprevious-public-certificate"
@@ -186,7 +206,7 @@ run "tls_identity_and_public_trust" {
   assert {
     condition = (
       length(google_secret_manager_secret_iam_member.internal_runner_tls) == 1 &&
-      google_secret_manager_secret_iam_member.internal_runner_tls[0].secret_id == "projects/runner-project/secrets/internal-llm-tls" &&
+      google_secret_manager_secret_iam_member.internal_runner_tls[0].secret_id == "projects/runner-project/secrets/00000000-0000-4000-8000-000000000001-internal-llm-tls" &&
       google_secret_manager_secret_iam_member.internal_runner_tls[0].role == "roles/secretmanager.secretAccessor" &&
       google_secret_manager_secret_iam_member.internal_runner_tls[0].member == "serviceAccount:runner@runner-project.iam.gserviceaccount.com"
     )

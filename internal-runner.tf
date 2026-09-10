@@ -1,3 +1,7 @@
+locals {
+  internal_runner_hostname = var.restrict_ingress ? trimsuffix(google_dns_record_set.internal_runner[0].name, ".") : null
+}
+
 resource "google_compute_address" "internal_runner" {
   count = var.restrict_ingress ? 2 : 0
 
