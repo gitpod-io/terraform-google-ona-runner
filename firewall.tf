@@ -51,6 +51,24 @@ resource "google_compute_firewall" "allow_runner_to_environments" {
   depends_on = [google_compute_backend_service.proxy]
 }
 
+resource "google_compute_firewall" "allow_environments_to_internal_runner" {
+  count = var.restrict_ingress ? 1 : 0
+
+  name    = "${var.runner_name}-env-to-internal-runner"
+  network = var.vpc_name
+  project = local.vpc_project_id
+
+  description = "Allow environments to reach the internal runner HTTPS endpoint"
+
+  allow {
+    protocol = "tcp"
+    ports    = ["8089"]
+  }
+
+  source_tags = ["gitpod-type-environment"]
+  target_tags = ["gitpod-runner"]
+}
+
 # Firewall rule for proxy to access runner backend service
 resource "google_compute_firewall" "allow_proxy_to_runner_backend" {
   name    = "${var.runner_name}-allow-proxy-to-runner-backend"

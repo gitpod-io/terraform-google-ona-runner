@@ -50,7 +50,7 @@ output "logs_url" {
 }
 
 output "internal_runner_ips" {
-  description = "Reserved internal runner IPs, not yet attached to VMs. Empty when restrict_ingress is disabled."
+  description = "Static IP addresses of the internal runner endpoint. Empty when restrict_ingress is disabled."
   value       = google_compute_address.internal_runner[*].address
 }
 

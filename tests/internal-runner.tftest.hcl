@@ -53,6 +53,7 @@ override_resource {
   override_during = plan
   values = {
     address = "10.0.0.10"
+    id      = "projects/runner-project/regions/us-central1/addresses/test-runner-internal-0"
   }
 }
 
@@ -61,6 +62,23 @@ override_resource {
   override_during = plan
   values = {
     address = "10.0.0.11"
+    id      = "projects/runner-project/regions/us-central1/addresses/test-runner-internal-1"
+  }
+}
+
+override_resource {
+  target          = google_compute_region_instance_group_manager.runner
+  override_during = plan
+  values = {
+    instance_group = "projects/runner-project/regions/us-central1/instanceGroups/test-runner-group"
+  }
+}
+
+override_resource {
+  target          = google_compute_region_backend_service.internal_runner[0]
+  override_during = plan
+  values = {
+    id = "projects/runner-project/regions/us-central1/backendServices/test-runner-internal-runner"
   }
 }
 
@@ -94,8 +112,11 @@ run "disabled_by_default" {
   assert {
     condition = (
       length(google_compute_address.internal_runner) == 0 &&
+      length(google_compute_region_backend_service.internal_runner) == 0 &&
+      length(google_compute_forwarding_rule.internal_runner) == 0 &&
       length(google_dns_managed_zone.internal_runner) == 0 &&
       length(google_dns_record_set.internal_runner) == 0 &&
+      length(google_compute_firewall.allow_environments_to_internal_runner) == 0 &&
       length(output.internal_runner_ips) == 0 &&
       output.internal_runner_hostname == null &&
       length(google_secret_manager_secret.internal_runner_tls) == 0 &&
@@ -125,6 +146,49 @@ run "private_runner_addresses" {
       address.subnetwork == "projects/runner-project/regions/us-central1/subnetworks/runner-subnet"
     ])
     error_message = "Both addresses must be internal reservations in the runner's project, region, and subnet."
+  }
+
+  assert {
+    condition = (
+      length(google_compute_region_backend_service.internal_runner) == 1 &&
+      google_compute_region_backend_service.internal_runner[0].project == "runner-project" &&
+      google_compute_region_backend_service.internal_runner[0].region == "us-central1" &&
+      google_compute_region_backend_service.internal_runner[0].load_balancing_scheme == "INTERNAL" &&
+      google_compute_region_backend_service.internal_runner[0].protocol == "TCP" &&
+      one(google_compute_region_backend_service.internal_runner[0].backend).group ==
+      "projects/runner-project/regions/us-central1/instanceGroups/test-runner-group" &&
+      one(google_compute_region_backend_service.internal_runner[0].backend).balancing_mode == "CONNECTION" &&
+      length(google_compute_forwarding_rule.internal_runner) == 2 &&
+      alltrue([
+        for index, rule in google_compute_forwarding_rule.internal_runner :
+        rule.project == "runner-project" &&
+        rule.region == "us-central1" &&
+        rule.load_balancing_scheme == "INTERNAL" &&
+        rule.ip_protocol == "TCP" &&
+        rule.ports == toset(["8089"]) &&
+        rule.backend_service == "projects/runner-project/regions/us-central1/backendServices/test-runner-internal-runner" &&
+        rule.ip_address == "projects/runner-project/regions/us-central1/addresses/test-runner-internal-${index}" &&
+        rule.network == "projects/runner-project/global/networks/runner-vpc" &&
+        rule.subnetwork == "projects/runner-project/regions/us-central1/subnetworks/runner-subnet"
+      ])
+    )
+    error_message = "Both reserved addresses must forward internal TCP port 8089 to the runner MIG."
+  }
+
+  assert {
+    condition = (
+      length(google_compute_firewall.allow_environments_to_internal_runner) == 1 &&
+      google_compute_firewall.allow_environments_to_internal_runner[0].project == "runner-project" &&
+      google_compute_firewall.allow_environments_to_internal_runner[0].network == "runner-vpc" &&
+      one(google_compute_firewall.allow_environments_to_internal_runner[0].allow).protocol == "tcp" &&
+      length(one(google_compute_firewall.allow_environments_to_internal_runner[0].allow).ports) == 1 &&
+      contains(one(google_compute_firewall.allow_environments_to_internal_runner[0].allow).ports, "8089") &&
+      length(google_compute_firewall.allow_environments_to_internal_runner[0].source_tags) == 1 &&
+      contains(google_compute_firewall.allow_environments_to_internal_runner[0].source_tags, "gitpod-type-environment") &&
+      length(google_compute_firewall.allow_environments_to_internal_runner[0].target_tags) == 1 &&
+      contains(google_compute_firewall.allow_environments_to_internal_runner[0].target_tags, "gitpod-runner")
+    )
+    error_message = "Only environment-tagged VMs must be allowed to reach runner port 8089."
   }
 
   assert {
@@ -174,6 +238,20 @@ run "shared_vpc" {
       "https://www.googleapis.com/compute/v1/projects/network-project/global/networks/runner-vpc"
     )
     error_message = "The runner project's private zone must be bound to the Shared VPC host network."
+  }
+
+  assert {
+    condition = (
+      alltrue([
+        for rule in google_compute_forwarding_rule.internal_runner :
+        rule.project == "runner-project" &&
+        rule.network == "projects/network-project/global/networks/runner-vpc" &&
+        rule.subnetwork == "projects/network-project/regions/us-central1/subnetworks/runner-subnet"
+      ]) &&
+      google_compute_firewall.allow_environments_to_internal_runner[0].project == "network-project" &&
+      google_compute_firewall.allow_environments_to_internal_runner[0].network == "runner-vpc"
+    )
+    error_message = "Shared VPC forwarding rules and firewall access must use the host project's network."
   }
 }
 
