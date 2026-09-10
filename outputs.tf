@@ -56,5 +56,5 @@ output "internal_runner_ips" {
 
 output "internal_runner_hostname" {
   description = "Private DNS hostname for the reserved runner IPs. Null when restrict_ingress is disabled."
-  value       = local.internal_runner_hostname
+  value       = var.restrict_ingress ? trimsuffix(google_dns_record_set.internal_runner[0].name, ".") : null
 }
