@@ -214,14 +214,8 @@ variable "enable_cross_zone_restart" {
   default     = false
 }
 
-variable "internal_runner_tls_generation" {
-  description = "Change to rotate the internal runner TLS identity after arranging overlapping public trust."
+variable "internal_runner_tls_version" {
+  description = "Increase to rotate the internal runner TLS key and certificate."
   type        = number
   default     = 1
-}
-
-variable "internal_runner_additional_trust_certificates" {
-  description = "Additional public PEM certificates retained during internal runner TLS rotation."
-  type        = list(string)
-  default     = []
 }

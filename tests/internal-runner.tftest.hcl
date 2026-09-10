@@ -181,8 +181,7 @@ run "tls_identity_and_public_trust" {
   command = plan
 
   variables {
-    restrict_ingress                              = true
-    internal_runner_additional_trust_certificates = ["previous-public-certificate"]
+    restrict_ingress = true
   }
 
   assert {
@@ -198,9 +197,9 @@ run "tls_identity_and_public_trust" {
         INTERNAL_RUNNER_TLS_SECRET         = "00000000-0000-4000-8000-000000000001-internal-llm-tls"
         INTERNAL_RUNNER_TLS_SECRET_VERSION = "7"
       }) &&
-      google_storage_bucket_object.trust_bundle[0].content == "current-public-certificate\nprevious-public-certificate"
+      google_storage_bucket_object.trust_bundle[0].content == "current-public-certificate"
     )
-    error_message = "The prepared runner configuration must pin the identity version and publish current and overlapping public trust."
+    error_message = "The prepared runner configuration must pin the identity version and publish its public certificate."
   }
 
   assert {
@@ -233,12 +232,12 @@ run "externally_managed_tls_iam" {
   }
 }
 
-run "invalid_tls_generation" {
+run "invalid_tls_version" {
   command = plan
 
   variables {
-    internal_runner_tls_generation = 0
+    internal_runner_tls_version = 0
   }
 
-  expect_failures = [var.internal_runner_tls_generation]
+  expect_failures = [var.internal_runner_tls_version]
 }

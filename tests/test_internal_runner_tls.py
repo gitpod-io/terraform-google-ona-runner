@@ -108,7 +108,7 @@ def main(google_version):
             raise RuntimeError(f"terraform {args[0]} failed: {'; '.join(errors)}")
         return result
 
-    def write_config(generation=1, prefix="runner", kms_key_name=None):
+    def write_config(version=1, prefix="runner", kms_key_name=None):
         config = {
             "terraform": {"required_version": ">= 1.11", "required_providers": {
                 "google": {"source": "hashicorp/google", "version": google_version},
@@ -123,7 +123,7 @@ def main(google_version):
                 "region": {"default": "us-central1"},
                 "runner_id": {"default": prefix},
                 "restrict_ingress": {"default": True},
-                "internal_runner_tls_generation": {"default": generation},
+                "internal_runner_tls_version": {"default": version},
             },
             "locals": {
                 "internal_runner_hostname": "runner.synthetic.internal",
@@ -224,7 +224,7 @@ def main(google_version):
         assert verify_pair().endswith("/runner-internal-llm-tls/versions/2")
         print("PASS: interrupted pair replacement and retry preserve the matching identity", flush=True)
 
-        write_config(generation=2)
+        write_config(version=2)
         tf("plan", "-out=rotation.tfplan", "-input=false", "-no-color")
         tf("apply", "-input=false", "-no-color", "rotation.tfplan")
         assert verify_pair().endswith("/runner-internal-llm-tls/versions/3")
@@ -237,7 +237,7 @@ def main(google_version):
         print("PASS: explicit key rotation and saved-plan apply retain old versions", flush=True)
 
         kms_key_name = "projects/key-project/locations/us-central1/keyRings/runner/cryptoKeys/secrets"
-        write_config(generation=2, prefix="replacement", kms_key_name=kms_key_name)
+        write_config(version=2, prefix="replacement", kms_key_name=kms_key_name)
         tf("apply", "-auto-approve", "-input=false", "-no-color")
         assert verify_pair().endswith("/replacement-internal-llm-tls/versions/1")
         for suffix in ["key", "tls"]:

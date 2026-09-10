@@ -82,7 +82,7 @@ resource "google_secret_manager_secret_version" "internal_runner_key" {
 
   secret                 = google_secret_manager_secret.internal_runner_tls["key"].id
   secret_data_wo         = ephemeral.tls_private_key.internal_runner_tls[0].private_key_pem
-  secret_data_wo_version = var.internal_runner_tls_generation
+  secret_data_wo_version = var.internal_runner_tls_version
   deletion_policy        = "ABANDON"
 
   lifecycle {
@@ -130,7 +130,7 @@ resource "google_secret_manager_secret_version" "internal_runner_tls" {
     certificate = tls_self_signed_cert.internal_runner[0].cert_pem
     privateKey  = ephemeral.google_secret_manager_secret_version.internal_runner_key[0].secret_data
   })
-  secret_data_wo_version = var.internal_runner_tls_generation
+  secret_data_wo_version = var.internal_runner_tls_version
   deletion_policy        = "ABANDON"
 
   lifecycle {

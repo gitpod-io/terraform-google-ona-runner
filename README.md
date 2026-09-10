@@ -93,14 +93,11 @@ access to the pair secret before activation. The Terraform deployer needs access
 to both secrets and their versions. See
 [deployer permissions](docs/terraform_service_account_permissions.md#internal-runner-tls-preparation).
 
-Use `internal_runner_tls_generation` to rotate the key and certificate. Before
-rotation, retain the old public certificate in
-`internal_runner_additional_trust_certificates`. Apply the new identity and
-combined trust, refresh or recreate environments so they trust both identities,
-and only then select the new secret version on runners. Remove old public trust
-and retire old secret versions after all environments and runners have moved.
-Old versions remain enabled across replacements to support that overlap;
-destroying their parent secrets still deletes them.
+Increase `internal_runner_tls_version` to rotate the key and certificate.
+Terraform writes a new Secret Manager version, updates the exact version in the
+`internal_runner_tls` output, and publishes the new public certificate in the
+trust bundle. Endpoint activation and live certificate reload are not part of
+this preparation stage.
 
 The certificate is self-signed, covers the internal DNS name, and is valid for
 ten years. Ordinary runner replacement reuses the selected identity. This module

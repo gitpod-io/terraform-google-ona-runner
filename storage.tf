@@ -293,8 +293,7 @@ locals {
   combined_certificate = join("\n", compact([
     local.ca_certificate_content != "" ? trimspace(local.ca_certificate_content) : null,
     local.secret_certificate != "" ? trimspace(local.secret_certificate) : null,
-    var.restrict_ingress ? trimspace(tls_self_signed_cert.internal_runner[0].cert_pem) : null,
-    var.restrict_ingress ? join("\n", var.internal_runner_additional_trust_certificates) : null
+    var.restrict_ingress ? trimspace(tls_self_signed_cert.internal_runner[0].cert_pem) : null
   ]))
 
   # Determine if we need a combined certificate file
