@@ -48,3 +48,13 @@ output "logs_url" {
   description = "Dashboard URL of logs explorer"
   value       = local.logs_url
 }
+
+output "internal_runner_ips" {
+  description = "Reserved internal runner IPs, not yet attached to VMs. Empty when restrict_ingress is disabled."
+  value       = google_compute_address.internal_runner[*].address
+}
+
+output "internal_runner_hostname" {
+  description = "Private DNS hostname for the reserved runner IPs. Null when restrict_ingress is disabled."
+  value       = var.restrict_ingress ? trimsuffix(google_dns_record_set.internal_runner[0].name, ".") : null
+}

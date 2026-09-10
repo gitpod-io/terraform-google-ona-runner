@@ -33,6 +33,19 @@ Pre-created service accounts avoid service-account creation permissions. When `p
 Some examples require additional permissions beyond the core set:
 - **`examples/runner-with-networking`** - See [permissions.md](../examples/runner-with-networking/permissions.md) for DNS and networking requirements
 
+### Restricted ingress preparation
+
+When `restrict_ingress = true`, enable `dns.googleapis.com` in the runner project
+and grant the **Terraform deployer** `roles/dns.admin` there to manage the private
+zone and A record. The existing Compute Network Admin role covers the internal
+address reservations. No DNS permissions are added to the runner service account.
+
+For Shared VPC, the deployer also needs `dns.networks.bindPrivateDNSZone` in the
+host project and permission to use the runner subnet. The DNS zone and address
+reservations remain in the runner project. Cross-project DNS binding requires
+both projects to be in the same organization; see
+[Cloud DNS cross-project binding](https://docs.cloud.google.com/dns/docs/zones/cross-project-binding).
+
 ## Creating the Service Account
 
 ```bash

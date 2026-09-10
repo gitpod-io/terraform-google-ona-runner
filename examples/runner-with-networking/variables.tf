@@ -44,6 +44,13 @@ variable "runner_domain" {
 
 # Optional Variables
 
+variable "restrict_ingress" {
+  description = "Prepare static internal IPs and private runner DNS. Does not yet attach the IPs, enable internal LLM routing, or restrict ingress."
+  type        = bool
+  default     = false
+  nullable    = false
+}
+
 variable "api_endpoint" {
   description = "Ona management plane API endpoint"
   type        = string
