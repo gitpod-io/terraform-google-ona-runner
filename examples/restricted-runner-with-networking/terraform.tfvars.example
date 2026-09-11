@@ -1,0 +1,16 @@
+project_id   = "my-runner-project"
+region       = "us-central1"
+zones        = ["us-central1-a", "us-central1-b"]
+runner_id    = "00000000-0000-4000-8000-000000000000"
+runner_token = "replace-with-runner-token"
+runner_name  = "ona-runner"
+
+# The default policy allows public HTTPS only to app.gitpod.io. Add exact
+# hostnames required for your SCM, editors, package registries, or custom domain.
+firewall_allowed_domains = [
+  "app.gitpod.io",
+]
+
+# Security evidence is kept in a locked 90-day Log Analytics bucket. Change
+# only its location when data-residency requirements prohibit the global default.
+security_log_bucket_location = "global"

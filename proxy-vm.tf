@@ -4,6 +4,8 @@
 
 # Cloud-init configuration for proxy VMs
 data "cloudinit_config" "proxy" {
+  count = var.restrict_ingress ? 0 : 1
+
   gzip          = false
   base64_encode = false
 
@@ -13,7 +15,7 @@ data "cloudinit_config" "proxy" {
       RUNNER_ID                 = var.runner_id
       PROJECT_ID                = var.project_id
       REGION                    = var.region
-      PROXY_DOMAIN              = var.runner_domain
+      PROXY_DOMAIN              = local.runner_proxy_domain
       PROXY_IMAGE_URL           = local.proxy_image
       PROMETHEUS_IMAGE          = local.prometheus_image
       NODE_EXPORTER_IMAGE       = local.node_exporter_image
@@ -48,6 +50,8 @@ data "cloudinit_config" "proxy" {
 
 # Create instance template for proxy VMs
 resource "google_compute_instance_template" "proxy" {
+  count = var.restrict_ingress ? 0 : 1
+
   name_prefix  = "${var.runner_name}-proxy-"
   project      = var.project_id
   machine_type = var.proxy_vm_config.machine_type
@@ -106,7 +110,7 @@ resource "google_compute_instance_template" "proxy" {
     block-project-ssh-keys       = "TRUE"
 
     # Cloud-init configuration for proxy setup
-    user-data = sensitive(data.cloudinit_config.proxy.rendered)
+    user-data = sensitive(data.cloudinit_config.proxy[0].rendered)
 
     "cos-metrics-enabled" = "true"
   }
@@ -118,6 +122,8 @@ resource "google_compute_instance_template" "proxy" {
 
 # Create managed instance group
 resource "google_compute_region_instance_group_manager" "proxy" {
+  count = var.restrict_ingress ? 0 : 1
+
   name                      = "${var.runner_name}-proxy-group"
   region                    = var.region
   project                   = var.project_id
@@ -125,7 +131,7 @@ resource "google_compute_region_instance_group_manager" "proxy" {
   distribution_policy_zones = var.zones
 
   version {
-    instance_template = google_compute_instance_template.proxy.id
+    instance_template = google_compute_instance_template.proxy[0].id
   }
 
   named_port {
@@ -170,9 +176,11 @@ resource "google_compute_region_instance_group_manager" "proxy" {
 
 # Create autoscaler for the instance group
 resource "google_compute_region_autoscaler" "proxy" {
+  count = var.restrict_ingress ? 0 : 1
+
   name    = "${var.runner_name}-proxy-autoscaler"
   region  = var.region
-  target  = google_compute_region_instance_group_manager.proxy.id
+  target  = google_compute_region_instance_group_manager.proxy[0].id
   project = var.project_id
 
   autoscaling_policy {
@@ -192,4 +200,19 @@ resource "google_compute_region_autoscaler" "proxy" {
   lifecycle {
     create_before_destroy = true
   }
+}
+
+moved {
+  from = google_compute_instance_template.proxy
+  to   = google_compute_instance_template.proxy[0]
+}
+
+moved {
+  from = google_compute_region_instance_group_manager.proxy
+  to   = google_compute_region_instance_group_manager.proxy[0]
+}
+
+moved {
+  from = google_compute_region_autoscaler.proxy
+  to   = google_compute_region_autoscaler.proxy[0]
 }

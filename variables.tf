@@ -20,8 +20,14 @@ variable "runner_name" {
 }
 
 variable "runner_domain" {
-  description = "The domain name of the runner"
+  description = "The domain name of the runner proxy. Required unless restrict_ingress is true."
   type        = string
+  default     = null
+
+  validation {
+    condition     = var.restrict_ingress || (var.runner_domain != null && trimspace(var.runner_domain) != "")
+    error_message = "runner_domain must be provided unless restrict_ingress is true."
+  }
 }
 
 variable "runner_token" {
@@ -49,7 +55,7 @@ variable "runner_subnet_name" {
 }
 
 variable "restrict_ingress" {
-  description = "Prepare two static internal IPs and private runner DNS for restricted ingress. Does not yet attach the IPs, enable internal LLM routing, or restrict ingress."
+  description = "Disable the runner proxy and load balancer, and use private runner endpoints for environment bootstrap and LLM traffic."
   type        = bool
   default     = false
   nullable    = false

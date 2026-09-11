@@ -34,13 +34,3 @@ output "runner_subnet_name" {
   description = "Name of the runner subnet"
   value       = local.runner_subnet_name
 }
-
-output "internal_runner_ips" {
-  description = "Reserved internal runner IPs, not yet attached to VMs"
-  value       = module.runner.internal_runner_ips
-}
-
-output "internal_runner_hostname" {
-  description = "Private DNS hostname for the reserved runner IPs"
-  value       = module.runner.internal_runner_hostname
-}
