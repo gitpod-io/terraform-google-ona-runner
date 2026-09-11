@@ -67,14 +67,6 @@ override_resource {
 }
 
 override_resource {
-  target          = tls_self_signed_cert.auth_proxy
-  override_during = plan
-  values = {
-    cert_pem = "auth-proxy-public-certificate"
-  }
-}
-
-override_resource {
   target          = tls_self_signed_cert.internal_runner[0]
   override_during = plan
   values = {
@@ -231,10 +223,11 @@ run "private_runner_addresses" {
   assert {
     condition = (
       local.runner_proxy_domain == "runner.ona-00000000-0000-4000-8000-000000000001.internal" &&
-      local.auth_proxy_url == "https://runner.ona-00000000-0000-4000-8000-000000000001.internal:4430/initial-spec" &&
-      contains(tls_self_signed_cert.auth_proxy.dns_names, local.runner_proxy_domain)
+      local.auth_proxy_url == "" &&
+      local.internal_runner_endpoint_configuration.endpoint == "https://runner.ona-00000000-0000-4000-8000-000000000001.internal:8089" &&
+      !contains(tls_self_signed_cert.auth_proxy.dns_names, local.runner_proxy_domain)
     )
-    error_message = "Restricted environments must bootstrap through the private runner hostname."
+    error_message = "Restricted environments must use the internal runner configuration on port 8089 without an auth-proxy initial-spec URL."
   }
 
   assert {
@@ -243,16 +236,15 @@ run "private_runner_addresses" {
       google_compute_firewall.allow_environments_to_internal_runner[0].project == "runner-project" &&
       google_compute_firewall.allow_environments_to_internal_runner[0].network == "runner-vpc" &&
       one(google_compute_firewall.allow_environments_to_internal_runner[0].allow).protocol == "tcp" &&
-      length(one(google_compute_firewall.allow_environments_to_internal_runner[0].allow).ports) == 2 &&
-      contains(one(google_compute_firewall.allow_environments_to_internal_runner[0].allow).ports, "4430") &&
+      length(one(google_compute_firewall.allow_environments_to_internal_runner[0].allow).ports) == 1 &&
       contains(one(google_compute_firewall.allow_environments_to_internal_runner[0].allow).ports, "8089") &&
       length(google_compute_firewall.allow_environments_to_internal_runner[0].source_tags) == 1 &&
       contains(google_compute_firewall.allow_environments_to_internal_runner[0].source_tags, "gitpod-type-environment") &&
       length(google_compute_firewall.allow_environments_to_internal_runner[0].target_tags) == 1 &&
       contains(google_compute_firewall.allow_environments_to_internal_runner[0].target_tags, "gitpod-runner") &&
-      !contains(one([for rule in google_compute_firewall.deny_environments_to_services.deny : rule if rule.protocol == "tcp"]).ports, "4430")
+      contains(one([for rule in google_compute_firewall.deny_environments_to_services.deny : rule if rule.protocol == "tcp"]).ports, "4430")
     )
-    error_message = "Only environment-tagged VMs must be allowed to reach runner ports 4430 and 8089."
+    error_message = "Only environment-tagged VMs must be allowed to reach runner port 8089; auth-proxy port 4430 must remain denied."
   }
 
   assert {
@@ -337,7 +329,7 @@ run "tls_identity_and_public_trust" {
         tls_secret         = "00000000-0000-4000-8000-000000000001-internal-llm-tls"
         tls_secret_version = "7"
       }) &&
-      google_storage_bucket_object.trust_bundle[0].content == "auth-proxy-public-certificate\ncurrent-public-certificate"
+      google_storage_bucket_object.trust_bundle[0].content == "current-public-certificate"
     )
     error_message = "The runner must receive the internal endpoint configuration and trust its public certificate."
   }

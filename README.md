@@ -48,8 +48,10 @@ both addresses.
 GCP does not support autoscaling a MIG with stateful IP configuration, so this
 mode uses exactly two runner instances. Updates recreate one instance at a time
 without surge or cross-zone redistribution, preserving each instance's address.
-The firewall permits the bootstrap and LLM HTTPS ports (`4430` and `8089`) only
-from environment-tagged VMs to the runner instances. Proxy VM, load-balancer,
+The firewall permits the internal runner HTTPS port (`8089`) only from
+environment-tagged VMs to the runner instances. The configured internal endpoint
+enables signed initial-spec delivery, so restricted environments do not fetch
+their initial spec from the auth-proxy port (`4430`). Proxy VM, load-balancer,
 certificate, and proxy IAM resources are not created in this mode.
 
 The hostname is `runner.ona-<runner_id>.internal`, scoped to the configured VPC.
@@ -83,7 +85,7 @@ With `restrict_ingress = true`, Terraform creates a bootstrap key secret and a
 runner certificate/key secret, and publishes the public certificate in the GCS
 trust bundle. It injects the endpoint, port, secret name, and exact secret
 version into the runner container. Enable restricted ingress only with a runner
-release that supports the internal endpoint configuration.
+release that supports the internal endpoint and signed initial-spec delivery.
 
 The internal TLS private key travels only through ephemeral values and
 write-only inputs. It is stored in Secret Manager, not Terraform state or saved

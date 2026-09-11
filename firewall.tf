@@ -58,11 +58,11 @@ resource "google_compute_firewall" "allow_environments_to_internal_runner" {
   network = var.vpc_name
   project = local.vpc_project_id
 
-  description = "Allow environments to reach the internal runner bootstrap and LLM HTTPS endpoints"
+  description = "Allow environments to reach the internal runner HTTPS endpoint"
 
   allow {
     protocol = "tcp"
-    ports    = ["4430", "8089"]
+    ports    = ["8089"]
   }
 
   source_tags = ["gitpod-type-environment"]
@@ -101,13 +101,14 @@ resource "google_compute_firewall" "deny_environments_to_services" {
 
   deny {
     protocol = "tcp"
-    ports = concat([
+    ports = [
       tostring(var.service_ports.runner_http_port),
       tostring(var.service_ports.runner_health_port),
       tostring(var.service_ports.proxy_https_port),
       tostring(var.service_ports.proxy_http_port),
+      "4430",
       "7070"
-    ], var.restrict_ingress ? [] : ["4430"])
+    ]
   }
 
   deny {

@@ -3,7 +3,7 @@
 
 locals {
   runner_proxy_domain = var.restrict_ingress ? local.internal_runner_hostname : coalesce(var.runner_domain, "")
-  auth_proxy_url      = var.restrict_ingress ? "https://${local.internal_runner_hostname}:4430/initial-spec" : "https://4430s--${var.runner_id}.${local.runner_proxy_domain}/initial-spec"
+  auth_proxy_url      = var.restrict_ingress ? "" : "https://4430s--${var.runner_id}.${local.runner_proxy_domain}/initial-spec"
 
   proxy_enabled = var.proxy_config != null
   ca_enabled    = var.ca_certificate != null
@@ -52,7 +52,7 @@ resource "tls_self_signed_cert" "auth_proxy" {
   private_key_pem = tls_private_key.auth_proxy.private_key_pem
 
   subject {
-    common_name  = var.restrict_ingress ? local.internal_runner_hostname : "${var.runner_name}-auth-proxy.internal"
+    common_name  = "${var.runner_name}-auth-proxy.internal"
     organization = "Gitpod"
   }
 
@@ -72,8 +72,7 @@ resource "tls_self_signed_cert" "auth_proxy" {
   dns_names = [
     "${var.runner_name}-auth-proxy.internal",
     "auth-proxy.internal",
-    "localhost",
-    local.runner_proxy_domain,
+    "localhost"
   ]
 
   ip_addresses = [
