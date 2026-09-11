@@ -25,14 +25,14 @@ resource "time_sleep" "wait_for_mig_provisioning" {
 
 # Health validation for external load balancer
 resource "null_resource" "health_validation_external" {
-  count = var.loadbalancer_type == "external" ? 1 : 0
+  count = !var.restrict_ingress && var.loadbalancer_type == "external" ? 1 : 0
 
   triggers = {
     runner_igm           = google_compute_region_instance_group_manager.runner[local.runner_instance_group_variant].self_link
     runner_target        = tostring(local.runner_target_instances)
-    proxy_igm            = google_compute_region_instance_group_manager.proxy.self_link
-    proxy_target         = tostring(google_compute_region_autoscaler.proxy.autoscaling_policy[0].min_replicas)
-    proxy_instance_group = google_compute_region_instance_group_manager.proxy.instance_group
+    proxy_igm            = google_compute_region_instance_group_manager.proxy[0].self_link
+    proxy_target         = tostring(google_compute_region_autoscaler.proxy[0].autoscaling_policy[0].min_replicas)
+    proxy_instance_group = google_compute_region_instance_group_manager.proxy[0].instance_group
     proxy_backend_ssl    = google_compute_backend_service.proxy[0].self_link
     proxy_backend_http   = google_compute_backend_service.proxy_http[0].self_link
     token_fingerprint    = substr(local.health_validation_token, 0, 16)
@@ -44,9 +44,9 @@ resource "null_resource" "health_validation_external" {
     environment = {
       RUNNER_IGM                 = google_compute_region_instance_group_manager.runner[local.runner_instance_group_variant].self_link
       RUNNER_TARGET              = local.runner_target_instances
-      PROXY_IGM                  = google_compute_region_instance_group_manager.proxy.self_link
-      PROXY_TARGET               = google_compute_region_autoscaler.proxy.autoscaling_policy[0].min_replicas
-      PROXY_GROUP                = google_compute_region_instance_group_manager.proxy.instance_group
+      PROXY_IGM                  = google_compute_region_instance_group_manager.proxy[0].self_link
+      PROXY_TARGET               = google_compute_region_autoscaler.proxy[0].autoscaling_policy[0].min_replicas
+      PROXY_GROUP                = google_compute_region_instance_group_manager.proxy[0].instance_group
       PROXY_BACKEND_SSL          = google_compute_backend_service.proxy[0].self_link
       PROXY_BACKEND_HTTP         = google_compute_backend_service.proxy_http[0].self_link
       GOOGLE_OAUTH_TOKEN         = local.health_validation_token
@@ -68,14 +68,14 @@ resource "null_resource" "health_validation_external" {
 
 # Health validation for internal load balancer
 resource "null_resource" "health_validation_internal" {
-  count = var.loadbalancer_type == "internal" ? 1 : 0
+  count = !var.restrict_ingress && var.loadbalancer_type == "internal" ? 1 : 0
 
   triggers = {
     runner_igm           = google_compute_region_instance_group_manager.runner[local.runner_instance_group_variant].self_link
     runner_target        = tostring(local.runner_target_instances)
-    proxy_igm            = google_compute_region_instance_group_manager.proxy.self_link
-    proxy_target         = tostring(google_compute_region_autoscaler.proxy.autoscaling_policy[0].min_replicas)
-    proxy_instance_group = google_compute_region_instance_group_manager.proxy.instance_group
+    proxy_igm            = google_compute_region_instance_group_manager.proxy[0].self_link
+    proxy_target         = tostring(google_compute_region_autoscaler.proxy[0].autoscaling_policy[0].min_replicas)
+    proxy_instance_group = google_compute_region_instance_group_manager.proxy[0].instance_group
     proxy_backend_ssl    = ""
     proxy_backend_http   = ""
     token_fingerprint    = substr(local.health_validation_token, 0, 16)
@@ -87,9 +87,9 @@ resource "null_resource" "health_validation_internal" {
     environment = {
       RUNNER_IGM                 = google_compute_region_instance_group_manager.runner[local.runner_instance_group_variant].self_link
       RUNNER_TARGET              = local.runner_target_instances
-      PROXY_IGM                  = google_compute_region_instance_group_manager.proxy.self_link
-      PROXY_TARGET               = google_compute_region_autoscaler.proxy.autoscaling_policy[0].min_replicas
-      PROXY_GROUP                = google_compute_region_instance_group_manager.proxy.instance_group
+      PROXY_IGM                  = google_compute_region_instance_group_manager.proxy[0].self_link
+      PROXY_TARGET               = google_compute_region_autoscaler.proxy[0].autoscaling_policy[0].min_replicas
+      PROXY_GROUP                = google_compute_region_instance_group_manager.proxy[0].instance_group
       PROXY_BACKEND_SSL          = ""
       PROXY_BACKEND_HTTP         = ""
       GOOGLE_OAUTH_TOKEN         = local.health_validation_token
@@ -104,5 +104,34 @@ resource "null_resource" "health_validation_internal" {
     google_compute_health_check.runner,
     google_compute_region_health_check.proxy_ssl_internal[0],
     google_compute_region_backend_service.proxy_internal[0]
+  ]
+}
+
+resource "null_resource" "health_validation_restricted" {
+  count = var.restrict_ingress ? 1 : 0
+
+  triggers = {
+    runner_igm        = google_compute_region_instance_group_manager.runner["internal"].self_link
+    runner_target     = tostring(local.runner_target_instances)
+    token_fingerprint = substr(local.health_validation_token, 0, 16)
+    script_version    = "v8"
+  }
+
+  provisioner "local-exec" {
+    command = "/bin/bash ${path.module}/health-check.sh"
+    environment = {
+      RUNNER_IGM                 = google_compute_region_instance_group_manager.runner["internal"].self_link
+      RUNNER_TARGET              = local.runner_target_instances
+      GOOGLE_OAUTH_TOKEN         = local.health_validation_token
+      PROJECT_ID                 = local.health_validation_project
+      HEALTH_CHECK_TIMEOUT       = 1800
+      HEALTH_CHECK_INITIAL_DELAY = 120
+    }
+  }
+
+  depends_on = [
+    time_sleep.wait_for_mig_provisioning,
+    google_compute_health_check.runner,
+    google_compute_region_per_instance_config.internal_runner,
   ]
 }

@@ -305,7 +305,7 @@ resource "google_project_iam_member" "runner_cp_redis_db_connection" {
 
 # Certificate Manager viewer role for external LB certificate access
 resource "google_project_iam_member" "runner_cp_certificate_manager" {
-  count   = local.manage_service_account_iam_policies && local.runner_sa_email != "" && var.loadbalancer_type == "external" ? 1 : 0
+  count   = !var.restrict_ingress && local.manage_service_account_iam_policies && local.runner_sa_email != "" && var.loadbalancer_type == "external" ? 1 : 0
   project = var.project_id
   role    = "roles/certificatemanager.viewer"
   member  = "serviceAccount:${local.runner_sa_email}"
@@ -313,7 +313,7 @@ resource "google_project_iam_member" "runner_cp_certificate_manager" {
 
 # Secret Manager access for internal LB certificate secret
 resource "google_secret_manager_secret_iam_member" "runner_cp_certificate_secret_access" {
-  count     = var.certificate_secret_id != "" ? 1 : 0
+  count     = !var.restrict_ingress && var.certificate_secret_id != "" ? 1 : 0
   project   = var.project_id
   secret_id = split("/", var.certificate_secret_id)[3]
   role      = "roles/secretmanager.secretAccessor"
@@ -460,6 +460,8 @@ resource "google_secret_manager_secret_iam_member" "runner_metrics_access" {
 
 # Allow proxy VM to access metrics configuration secret
 resource "google_secret_manager_secret_iam_member" "proxy_metrics_access" {
+  count = var.restrict_ingress ? 0 : 1
+
   project   = var.project_id
   secret_id = google_secret_manager_secret.metrics.secret_id
   role      = "roles/secretmanager.secretAccessor"
@@ -503,7 +505,7 @@ resource "google_project_iam_member" "env_vm_monitoring" {
 
 # Service account for proxy VMs
 resource "google_service_account" "proxy_vm" {
-  count = var.pre_created_service_accounts.proxy_vm == "" ? 1 : 0
+  count = !var.restrict_ingress && var.pre_created_service_accounts.proxy_vm == "" ? 1 : 0
 
   account_id   = "${var.runner_name}-proxy-vm"
   display_name = "Ona Proxy VM Service"
@@ -513,7 +515,7 @@ resource "google_service_account" "proxy_vm" {
 
 # Custom role with minimal permissions for proxy VM
 resource "google_project_iam_custom_role" "proxy_vm" {
-  count = var.pre_created_service_accounts.proxy_vm == "" || var.pre_created_service_accounts.attach_iam_policies ? 1 : 0
+  count = !var.restrict_ingress && (var.pre_created_service_accounts.proxy_vm == "" || var.pre_created_service_accounts.attach_iam_policies) ? 1 : 0
 
   role_id     = "${replace(var.runner_name, "-", "_")}_proxy_vm"
   title       = "Ona Proxy VM Minimal"
@@ -582,7 +584,7 @@ resource "google_project_iam_member" "proxy_vm_cloud_run" {
 
 # Certificate Manager viewer role for external LB certificate access
 resource "google_project_iam_member" "proxy_vm_certificate_manager" {
-  count   = local.manage_service_account_iam_policies && local.proxy_vm_sa_email != "" && var.loadbalancer_type == "external" ? 1 : 0
+  count   = !var.restrict_ingress && local.manage_service_account_iam_policies && local.proxy_vm_sa_email != "" && var.loadbalancer_type == "external" ? 1 : 0
   project = var.project_id
   role    = "roles/certificatemanager.viewer"
   member  = "serviceAccount:${local.proxy_vm_sa_email}"
@@ -590,7 +592,7 @@ resource "google_project_iam_member" "proxy_vm_certificate_manager" {
 
 # Secret Manager access for internal LB certificate secret
 resource "google_secret_manager_secret_iam_member" "proxy_vm_certificate_secret_access" {
-  count     = var.certificate_secret_id != "" ? 1 : 0
+  count     = !var.restrict_ingress && var.certificate_secret_id != "" ? 1 : 0
   project   = var.project_id
   secret_id = split("/", var.certificate_secret_id)[3]
   role      = "roles/secretmanager.secretAccessor"
@@ -600,9 +602,21 @@ resource "google_secret_manager_secret_iam_member" "proxy_vm_certificate_secret_
 # GCS access for runner assets bucket (proxy VMs)
 # objectAdmin is required for the metrics audit receiver to write audit payloads.
 resource "google_storage_bucket_iam_member" "proxy_vm_runner_assets_access" {
+  count = var.restrict_ingress ? 0 : 1
+
   bucket = google_storage_bucket.runner_assets.name
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${local.proxy_vm_sa_email}"
+}
+
+moved {
+  from = google_secret_manager_secret_iam_member.proxy_metrics_access
+  to   = google_secret_manager_secret_iam_member.proxy_metrics_access[0]
+}
+
+moved {
+  from = google_storage_bucket_iam_member.proxy_vm_runner_assets_access
+  to   = google_storage_bucket_iam_member.proxy_vm_runner_assets_access[0]
 }
 
 # ================================

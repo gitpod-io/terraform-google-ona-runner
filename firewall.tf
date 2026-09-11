@@ -4,6 +4,8 @@
 
 # Firewall rule for proxy to environments communication
 resource "google_compute_firewall" "allow_proxy_to_environments" {
+  count = var.restrict_ingress ? 0 : 1
+
   name    = "${var.runner_name}-allow-proxy-to-environments"
   network = var.vpc_name
   project = local.vpc_project_id
@@ -47,8 +49,6 @@ resource "google_compute_firewall" "allow_runner_to_environments" {
   source_tags = ["gitpod-runner"]
   target_tags = ["gitpod-type-environment"]
 
-  # depends on proxy vm
-  depends_on = [google_compute_backend_service.proxy]
 }
 
 resource "google_compute_firewall" "allow_environments_to_internal_runner" {
@@ -58,11 +58,11 @@ resource "google_compute_firewall" "allow_environments_to_internal_runner" {
   network = var.vpc_name
   project = local.vpc_project_id
 
-  description = "Allow environments to reach the internal runner HTTPS endpoint"
+  description = "Allow environments to reach the internal runner bootstrap and LLM HTTPS endpoints"
 
   allow {
     protocol = "tcp"
-    ports    = ["8089"]
+    ports    = ["4430", "8089"]
   }
 
   source_tags = ["gitpod-type-environment"]
@@ -71,6 +71,8 @@ resource "google_compute_firewall" "allow_environments_to_internal_runner" {
 
 # Firewall rule for proxy to access runner backend service
 resource "google_compute_firewall" "allow_proxy_to_runner_backend" {
+  count = var.restrict_ingress ? 0 : 1
+
   name    = "${var.runner_name}-allow-proxy-to-runner-backend"
   network = var.vpc_name
   project = local.vpc_project_id
@@ -99,14 +101,13 @@ resource "google_compute_firewall" "deny_environments_to_services" {
 
   deny {
     protocol = "tcp"
-    ports = [
+    ports = concat([
       tostring(var.service_ports.runner_http_port),
       tostring(var.service_ports.runner_health_port),
       tostring(var.service_ports.proxy_https_port),
       tostring(var.service_ports.proxy_http_port),
-      "4430",
       "7070"
-    ]
+    ], var.restrict_ingress ? [] : ["4430"])
   }
 
   deny {
@@ -121,8 +122,6 @@ resource "google_compute_firewall" "deny_environments_to_services" {
     metadata = "INCLUDE_ALL_METADATA"
   }
 
-  # depends on proxy vm
-  depends_on = [google_compute_backend_service.proxy]
 }
 
 # Firewall rule to allow IAP TCP forwarding to environments on port 22222
@@ -145,12 +144,12 @@ resource "google_compute_firewall" "allow_iap_to_environments" {
     metadata = "INCLUDE_ALL_METADATA"
   }
 
-  # depends on proxy vm
-  depends_on = [google_compute_backend_service.proxy]
 }
 
 # Firewall rule to allow Network Load Balancer health checks
 resource "google_compute_firewall" "allow_network_lb_health_checks" {
+  count = var.restrict_ingress ? 0 : 1
+
   name    = "${var.runner_name}-allow-network-lb-health-checks"
   network = var.vpc_name
   project = local.vpc_project_id
@@ -194,8 +193,6 @@ resource "google_compute_firewall" "deny_email_from_environments" {
     metadata = "INCLUDE_ALL_METADATA"
   }
 
-  # depends on proxy vm
-  depends_on = [google_compute_backend_service.proxy]
 }
 
 # Firewall rule to allow health check traffic
@@ -229,6 +226,8 @@ resource "google_compute_firewall" "runner_health_check" {
 # SSH (22) is intentionally excluded — runner-to-environment SSH uses
 # tag-based rules, and operator SSH should go through IAP (35.235.240.0/20).
 resource "google_compute_firewall" "runner_internal_traffic" {
+  count = var.restrict_ingress ? 0 : 1
+
   name    = "${var.runner_name}-internal-traffic"
   network = var.vpc_name
   project = local.vpc_project_id
@@ -266,6 +265,8 @@ resource "google_compute_firewall" "allow_iap_to_runner" {
 
 # Firewall rule for health checks
 resource "google_compute_firewall" "allow_health_checks" {
+  count = var.restrict_ingress ? 0 : 1
+
   name    = "${var.runner_name}-allow-health-checks-v2"
   network = var.vpc_name
   project = local.vpc_project_id
@@ -324,6 +325,8 @@ resource "google_compute_firewall" "allow_google_apis" {
 
 # Firewall rule to allow health check traffic
 resource "google_compute_firewall" "proxy_health_check" {
+  count = var.restrict_ingress ? 0 : 1
+
   name    = "${var.runner_name}-proxy-health-check"
   network = var.vpc_name
   project = local.vpc_project_id
@@ -342,6 +345,8 @@ resource "google_compute_firewall" "proxy_health_check" {
 # Firewall rule to allow HTTP/HTTPS traffic to proxy instances.
 # SSH (22) is intentionally excluded — operator SSH should go through IAP.
 resource "google_compute_firewall" "proxy_web_traffic" {
+  count = var.restrict_ingress ? 0 : 1
+
   name    = "${var.runner_name}-proxy-web-traffic"
   network = var.vpc_name
   project = local.vpc_project_id
@@ -359,6 +364,8 @@ resource "google_compute_firewall" "proxy_web_traffic" {
 
 # Allow IAP TCP forwarding to proxy instances for operator SSH access
 resource "google_compute_firewall" "allow_iap_to_proxy" {
+  count = var.restrict_ingress ? 0 : 1
+
   name    = "${var.runner_name}-allow-iap-to-proxy"
   network = var.vpc_name
   project = local.vpc_project_id
@@ -426,6 +433,8 @@ resource "google_compute_firewall" "allow_runner_to_redis" {
 
 # Allow runner egress to proxy for internal coordination
 resource "google_compute_firewall" "allow_runner_to_proxy_egress" {
+  count = var.restrict_ingress ? 0 : 1
+
   name    = "${var.runner_name}-allow-runner-to-proxy-egress"
   network = var.vpc_name
   project = local.vpc_project_id
@@ -445,6 +454,8 @@ resource "google_compute_firewall" "allow_runner_to_proxy_egress" {
 
 # Deny proxy egress to environments on SSH ports (security isolation)
 resource "google_compute_firewall" "deny_proxy_to_environments_ssh_egress" {
+  count = var.restrict_ingress ? 0 : 1
+
   name    = "${var.runner_name}-deny-proxy-to-env-ssh-egress"
   network = var.vpc_name
   project = local.vpc_project_id
@@ -468,6 +479,8 @@ resource "google_compute_firewall" "deny_proxy_to_environments_ssh_egress" {
 
 # Allow proxy egress to environments on application ports only
 resource "google_compute_firewall" "allow_proxy_to_environments_egress" {
+  count = var.restrict_ingress ? 0 : 1
+
   name    = "${var.runner_name}-allow-proxy-to-environments-egress"
   network = var.vpc_name
   project = local.vpc_project_id
@@ -549,4 +562,59 @@ resource "google_compute_firewall" "allow_environments_internet_egress" {
   log_config {
     metadata = "INCLUDE_ALL_METADATA"
   }
+}
+
+moved {
+  from = google_compute_firewall.allow_proxy_to_environments
+  to   = google_compute_firewall.allow_proxy_to_environments[0]
+}
+
+moved {
+  from = google_compute_firewall.allow_proxy_to_runner_backend
+  to   = google_compute_firewall.allow_proxy_to_runner_backend[0]
+}
+
+moved {
+  from = google_compute_firewall.allow_network_lb_health_checks
+  to   = google_compute_firewall.allow_network_lb_health_checks[0]
+}
+
+moved {
+  from = google_compute_firewall.runner_internal_traffic
+  to   = google_compute_firewall.runner_internal_traffic[0]
+}
+
+moved {
+  from = google_compute_firewall.allow_health_checks
+  to   = google_compute_firewall.allow_health_checks[0]
+}
+
+moved {
+  from = google_compute_firewall.proxy_health_check
+  to   = google_compute_firewall.proxy_health_check[0]
+}
+
+moved {
+  from = google_compute_firewall.proxy_web_traffic
+  to   = google_compute_firewall.proxy_web_traffic[0]
+}
+
+moved {
+  from = google_compute_firewall.allow_iap_to_proxy
+  to   = google_compute_firewall.allow_iap_to_proxy[0]
+}
+
+moved {
+  from = google_compute_firewall.allow_runner_to_proxy_egress
+  to   = google_compute_firewall.allow_runner_to_proxy_egress[0]
+}
+
+moved {
+  from = google_compute_firewall.deny_proxy_to_environments_ssh_egress
+  to   = google_compute_firewall.deny_proxy_to_environments_ssh_egress[0]
+}
+
+moved {
+  from = google_compute_firewall.allow_proxy_to_environments_egress
+  to   = google_compute_firewall.allow_proxy_to_environments_egress[0]
 }

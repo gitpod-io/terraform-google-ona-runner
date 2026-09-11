@@ -2,12 +2,12 @@
 
 locals {
   # Validate that routable_subnet_name is provided when loadbalancer_type is internal
-  validate_routable_subnet = var.loadbalancer_type == "internal" && var.routable_subnet_name == "" ? tobool("routable_subnet_name must be provided when loadbalancer_type is 'internal'") : true
+  validate_routable_subnet = !var.restrict_ingress && var.loadbalancer_type == "internal" && var.routable_subnet_name == "" ? tobool("routable_subnet_name must be provided when loadbalancer_type is 'internal'") : true
 }
 
 # Health check for HTTP backend service
 resource "google_compute_health_check" "proxy_http" {
-  count   = var.loadbalancer_type == "external" ? 1 : 0
+  count   = !var.restrict_ingress && var.loadbalancer_type == "external" ? 1 : 0
   name    = "${var.runner_name}-proxy-http-health"
   project = var.project_id
 
@@ -29,7 +29,7 @@ resource "google_compute_health_check" "proxy_http" {
 
 # SSL health check for port 8443 (global - for external LB)
 resource "google_compute_health_check" "proxy_ssl" {
-  count   = var.loadbalancer_type == "external" ? 1 : 0
+  count   = !var.restrict_ingress && var.loadbalancer_type == "external" ? 1 : 0
   name    = "${var.runner_name}-proxy-ssl-health"
   project = var.project_id
 
@@ -50,7 +50,7 @@ resource "google_compute_health_check" "proxy_ssl" {
 
 # Backend service for SSL load balancer using Instance Group (external only)
 resource "google_compute_backend_service" "proxy" {
-  count                 = var.loadbalancer_type == "external" ? 1 : 0
+  count                 = !var.restrict_ingress && var.loadbalancer_type == "external" ? 1 : 0
   name                  = "${var.runner_name}-proxy-backend"
   project               = var.project_id
   load_balancing_scheme = "EXTERNAL"
@@ -59,7 +59,7 @@ resource "google_compute_backend_service" "proxy" {
   port_name             = "https"
 
   backend {
-    group           = google_compute_region_instance_group_manager.proxy.instance_group
+    group           = google_compute_region_instance_group_manager.proxy[0].instance_group
     balancing_mode  = "UTILIZATION"
     capacity_scaler = 1.0
   }
@@ -76,14 +76,14 @@ resource "google_compute_backend_service" "proxy" {
 
   depends_on = [
     google_compute_health_check.proxy_ssl[0],
-    google_compute_region_instance_group_manager.proxy,
-    google_compute_region_autoscaler.proxy
+    google_compute_region_instance_group_manager.proxy[0],
+    google_compute_region_autoscaler.proxy[0]
   ]
 }
 
 # Backend service for HTTP traffic (TCP protocol) - external only
 resource "google_compute_backend_service" "proxy_http" {
-  count                 = var.loadbalancer_type == "external" ? 1 : 0
+  count                 = !var.restrict_ingress && var.loadbalancer_type == "external" ? 1 : 0
   name                  = "${var.runner_name}-proxy-http-backend"
   project               = var.project_id
   load_balancing_scheme = "EXTERNAL"
@@ -92,7 +92,7 @@ resource "google_compute_backend_service" "proxy_http" {
   port_name             = "http"
 
   backend {
-    group           = google_compute_region_instance_group_manager.proxy.instance_group
+    group           = google_compute_region_instance_group_manager.proxy[0].instance_group
     balancing_mode  = "UTILIZATION"
     capacity_scaler = 1.0
   }
@@ -109,14 +109,14 @@ resource "google_compute_backend_service" "proxy_http" {
 
   depends_on = [
     google_compute_health_check.proxy_http[0],
-    google_compute_region_instance_group_manager.proxy,
-    google_compute_region_autoscaler.proxy
+    google_compute_region_instance_group_manager.proxy[0],
+    google_compute_region_autoscaler.proxy[0]
   ]
 }
 
 # Certificate map for using existing Certificate Manager certificate (external LB only)
 resource "google_certificate_manager_certificate_map" "proxy_cert_map" {
-  count       = var.loadbalancer_type == "external" ? 1 : 0
+  count       = !var.restrict_ingress && var.loadbalancer_type == "external" ? 1 : 0
   name        = "${var.runner_name}-proxy-cert-map"
   description = "${var.runner_domain} certificate map"
   project     = var.project_id
@@ -129,7 +129,7 @@ resource "google_certificate_manager_certificate_map" "proxy_cert_map" {
 
 # Certificate map entry for root domain (external LB only)
 resource "google_certificate_manager_certificate_map_entry" "proxy_cert_map_entry" {
-  count        = var.loadbalancer_type == "external" ? 1 : 0
+  count        = !var.restrict_ingress && var.loadbalancer_type == "external" ? 1 : 0
   name         = "${var.runner_name}-proxy-cert-map-entry"
   map          = google_certificate_manager_certificate_map.proxy_cert_map[0].name
   certificates = [var.certificate_id]
@@ -139,7 +139,7 @@ resource "google_certificate_manager_certificate_map_entry" "proxy_cert_map_entr
 
 # Certificate map entry for wildcard domain (external LB only)
 resource "google_certificate_manager_certificate_map_entry" "proxy_wildcard_cert_map_entry" {
-  count        = var.loadbalancer_type == "external" ? 1 : 0
+  count        = !var.restrict_ingress && var.loadbalancer_type == "external" ? 1 : 0
   name         = "${var.runner_name}-proxy-wildcard-cert-map-entry"
   map          = google_certificate_manager_certificate_map.proxy_cert_map[0].name
   certificates = [var.certificate_id]
@@ -149,7 +149,7 @@ resource "google_certificate_manager_certificate_map_entry" "proxy_wildcard_cert
 
 # SSL target proxy for TLS termination at load balancer (external only)
 resource "google_compute_target_ssl_proxy" "proxy" {
-  count           = var.loadbalancer_type == "external" ? 1 : 0
+  count           = !var.restrict_ingress && var.loadbalancer_type == "external" ? 1 : 0
   name            = "${var.runner_name}-proxy-ssl"
   project         = var.project_id
   backend_service = google_compute_backend_service.proxy[0].id
@@ -158,7 +158,7 @@ resource "google_compute_target_ssl_proxy" "proxy" {
 
 # TCP target proxy for HTTP traffic (port 80) - external only
 resource "google_compute_target_tcp_proxy" "proxy_http" {
-  count           = var.loadbalancer_type == "external" ? 1 : 0
+  count           = !var.restrict_ingress && var.loadbalancer_type == "external" ? 1 : 0
   name            = "${var.runner_name}-proxy-http-tcp"
   project         = var.project_id
   backend_service = google_compute_backend_service.proxy_http[0].id
@@ -166,14 +166,14 @@ resource "google_compute_target_tcp_proxy" "proxy_http" {
 
 # Global static IP for external load balancer
 resource "google_compute_global_address" "proxy_ip" {
-  count   = var.loadbalancer_type == "external" ? 1 : 0
+  count   = !var.restrict_ingress && var.loadbalancer_type == "external" ? 1 : 0
   name    = "${var.runner_name}-proxy-ip"
   project = var.project_id
 }
 
 # Global forwarding rule for HTTPS (port 443) - external SSL proxy
 resource "google_compute_global_forwarding_rule" "https" {
-  count                 = var.loadbalancer_type == "external" ? 1 : 0
+  count                 = !var.restrict_ingress && var.loadbalancer_type == "external" ? 1 : 0
   name                  = "${var.runner_name}-proxy-https"
   project               = var.project_id
   ip_protocol           = "TCP"
@@ -185,7 +185,7 @@ resource "google_compute_global_forwarding_rule" "https" {
 
 # Global forwarding rule for HTTP (port 80) - external TCP
 resource "google_compute_global_forwarding_rule" "http" {
-  count                 = var.loadbalancer_type == "external" ? 1 : 0
+  count                 = !var.restrict_ingress && var.loadbalancer_type == "external" ? 1 : 0
   name                  = "${var.runner_name}-proxy-http"
   project               = var.project_id
   ip_protocol           = "TCP"
@@ -199,7 +199,7 @@ resource "google_compute_global_forwarding_rule" "http" {
 
 # Regional SSL health check for port 8443 (for internal LB)
 resource "google_compute_region_health_check" "proxy_ssl_internal" {
-  count   = var.loadbalancer_type == "internal" ? 1 : 0
+  count   = !var.restrict_ingress && var.loadbalancer_type == "internal" ? 1 : 0
   name    = "${var.runner_name}-proxy-ssl-internal-health"
   project = var.project_id
   region  = var.region
@@ -221,7 +221,7 @@ resource "google_compute_region_health_check" "proxy_ssl_internal" {
 
 # Regional backend service for HTTPS traffic (internal TCP proxy mode)
 resource "google_compute_region_backend_service" "proxy_internal" {
-  count                 = var.loadbalancer_type == "internal" ? 1 : 0
+  count                 = !var.restrict_ingress && var.loadbalancer_type == "internal" ? 1 : 0
   name                  = "${var.runner_name}-proxy-internal-backend"
   project               = var.project_id
   region                = var.region
@@ -231,7 +231,7 @@ resource "google_compute_region_backend_service" "proxy_internal" {
   port_name             = "https"
 
   backend {
-    group           = google_compute_region_instance_group_manager.proxy.instance_group
+    group           = google_compute_region_instance_group_manager.proxy[0].instance_group
     balancing_mode  = "UTILIZATION"
     capacity_scaler = 1.0
   }
@@ -248,14 +248,14 @@ resource "google_compute_region_backend_service" "proxy_internal" {
 
   depends_on = [
     google_compute_region_health_check.proxy_ssl_internal,
-    google_compute_region_instance_group_manager.proxy,
-    google_compute_region_autoscaler.proxy
+    google_compute_region_instance_group_manager.proxy[0],
+    google_compute_region_autoscaler.proxy[0]
   ]
 }
 
 # Regional static IP for internal load balancer HTTPS
 resource "google_compute_address" "proxy_internal_ip" {
-  count        = var.loadbalancer_type == "internal" ? 1 : 0
+  count        = !var.restrict_ingress && var.loadbalancer_type == "internal" ? 1 : 0
   name         = "${var.runner_name}-proxy-internal-ip"
   project      = var.project_id
   region       = var.region
@@ -265,7 +265,7 @@ resource "google_compute_address" "proxy_internal_ip" {
 
 # Regional TCP target proxy for internal load balancer (TCP proxy mode)
 resource "google_compute_region_target_tcp_proxy" "proxy_internal" {
-  count           = var.loadbalancer_type == "internal" ? 1 : 0
+  count           = !var.restrict_ingress && var.loadbalancer_type == "internal" ? 1 : 0
   name            = "${var.runner_name}-proxy-internal-tcp"
   project         = var.project_id
   region          = var.region
@@ -274,7 +274,7 @@ resource "google_compute_region_target_tcp_proxy" "proxy_internal" {
 
 # Regional forwarding rule for HTTPS (port 443) - internal TCP proxy
 resource "google_compute_forwarding_rule" "https_internal" {
-  count                 = var.loadbalancer_type == "internal" ? 1 : 0
+  count                 = !var.restrict_ingress && var.loadbalancer_type == "internal" ? 1 : 0
   name                  = "${var.runner_name}-proxy-https-internal"
   project               = var.project_id
   region                = var.region

@@ -67,6 +67,14 @@ override_resource {
 }
 
 override_resource {
+  target          = tls_self_signed_cert.auth_proxy
+  override_during = plan
+  values = {
+    cert_pem = "auth-proxy-public-certificate"
+  }
+}
+
+override_resource {
   target          = tls_self_signed_cert.internal_runner[0]
   override_during = plan
   values = {
@@ -111,6 +119,21 @@ run "disabled_by_default" {
       local.internal_runner_endpoint_configuration == null
     )
     error_message = "Default deployments must not reserve runner IPs or create private DNS."
+  }
+
+  assert {
+    condition = (
+      length(data.cloudinit_config.proxy) == 1 &&
+      length(google_compute_instance_template.proxy) == 1 &&
+      length(google_compute_region_instance_group_manager.proxy) == 1 &&
+      length(google_compute_region_autoscaler.proxy) == 1 &&
+      length(google_compute_backend_service.proxy) == 1 &&
+      length(null_resource.health_validation_external) == 1 &&
+      length(null_resource.health_validation_restricted) == 0 &&
+      contains(one([for rule in google_compute_firewall.deny_environments_to_services.deny : rule if rule.protocol == "tcp"]).ports, "4430") &&
+      local.proxy_vm_sa_email == "proxy-vm@runner-project.iam.gserviceaccount.com"
+    )
+    error_message = "Default deployments must retain the proxy and external load balancer path."
   }
 
   assert {
@@ -168,10 +191,50 @@ run "private_runner_addresses" {
       one(google_compute_region_instance_group_manager.runner["internal"].update_policy).max_surge_fixed == 0 &&
       one(google_compute_region_instance_group_manager.runner["internal"].update_policy).max_unavailable_fixed == 1 &&
       one(google_compute_region_instance_group_manager.runner["internal"].update_policy).replacement_method == "RECREATE" &&
+      google_compute_region_instance_group_manager.runner["internal"].target_size == 2 &&
       output.runner_instance_group_name == "test-runner-internal-group" &&
       local.runner_target_instances == 2
     )
     error_message = "The restricted runner MIG must contain two fixed instances using the reserved internal IPs."
+  }
+
+
+  assert {
+    condition = (
+      length(data.cloudinit_config.proxy) == 0 &&
+      length(google_compute_instance_template.proxy) == 0 &&
+      length(google_compute_region_instance_group_manager.proxy) == 0 &&
+      length(google_compute_region_autoscaler.proxy) == 0 &&
+      length(google_compute_backend_service.proxy) == 0 &&
+      length(google_compute_backend_service.proxy_http) == 0 &&
+      length(google_compute_region_backend_service.proxy_internal) == 0 &&
+      length(google_compute_global_forwarding_rule.https) == 0 &&
+      length(google_compute_global_forwarding_rule.http) == 0 &&
+      length(google_compute_forwarding_rule.https_internal) == 0 &&
+      length(google_compute_firewall.allow_proxy_to_environments) == 0 &&
+      length(google_compute_firewall.allow_proxy_to_runner_backend) == 0 &&
+      length(google_compute_firewall.proxy_web_traffic) == 0 &&
+      length(google_secret_manager_secret_iam_member.proxy_metrics_access) == 0 &&
+      length(google_storage_bucket_iam_member.proxy_vm_runner_assets_access) == 0 &&
+      length(null_resource.health_validation_external) == 0 &&
+      length(null_resource.health_validation_internal) == 0 &&
+      length(null_resource.health_validation_restricted) == 1 &&
+      local.proxy_vm_sa_email == "" &&
+      output.proxy_ip == null &&
+      output.load_balancer_ip == null &&
+      output.load_balancer_backend_services == null &&
+      output.proxy_instance_group_name == null
+    )
+    error_message = "Restricted deployments must not create proxy, load balancer, or proxy IAM resources."
+  }
+
+  assert {
+    condition = (
+      local.runner_proxy_domain == "runner.ona-00000000-0000-4000-8000-000000000001.internal" &&
+      local.auth_proxy_url == "https://runner.ona-00000000-0000-4000-8000-000000000001.internal:4430/initial-spec" &&
+      contains(tls_self_signed_cert.auth_proxy.dns_names, local.runner_proxy_domain)
+    )
+    error_message = "Restricted environments must bootstrap through the private runner hostname."
   }
 
   assert {
@@ -180,14 +243,16 @@ run "private_runner_addresses" {
       google_compute_firewall.allow_environments_to_internal_runner[0].project == "runner-project" &&
       google_compute_firewall.allow_environments_to_internal_runner[0].network == "runner-vpc" &&
       one(google_compute_firewall.allow_environments_to_internal_runner[0].allow).protocol == "tcp" &&
-      length(one(google_compute_firewall.allow_environments_to_internal_runner[0].allow).ports) == 1 &&
+      length(one(google_compute_firewall.allow_environments_to_internal_runner[0].allow).ports) == 2 &&
+      contains(one(google_compute_firewall.allow_environments_to_internal_runner[0].allow).ports, "4430") &&
       contains(one(google_compute_firewall.allow_environments_to_internal_runner[0].allow).ports, "8089") &&
       length(google_compute_firewall.allow_environments_to_internal_runner[0].source_tags) == 1 &&
       contains(google_compute_firewall.allow_environments_to_internal_runner[0].source_tags, "gitpod-type-environment") &&
       length(google_compute_firewall.allow_environments_to_internal_runner[0].target_tags) == 1 &&
-      contains(google_compute_firewall.allow_environments_to_internal_runner[0].target_tags, "gitpod-runner")
+      contains(google_compute_firewall.allow_environments_to_internal_runner[0].target_tags, "gitpod-runner") &&
+      !contains(one([for rule in google_compute_firewall.deny_environments_to_services.deny : rule if rule.protocol == "tcp"]).ports, "4430")
     )
-    error_message = "Only environment-tagged VMs must be allowed to reach runner port 8089."
+    error_message = "Only environment-tagged VMs must be allowed to reach runner ports 4430 and 8089."
   }
 
   assert {
@@ -272,7 +337,7 @@ run "tls_identity_and_public_trust" {
         tls_secret         = "00000000-0000-4000-8000-000000000001-internal-llm-tls"
         tls_secret_version = "7"
       }) &&
-      google_storage_bucket_object.trust_bundle[0].content == "current-public-certificate"
+      google_storage_bucket_object.trust_bundle[0].content == "auth-proxy-public-certificate\ncurrent-public-certificate"
     )
     error_message = "The runner must receive the internal endpoint configuration and trust its public certificate."
   }
@@ -285,6 +350,20 @@ run "tls_identity_and_public_trust" {
       google_secret_manager_secret_iam_member.internal_runner_tls[0].member == "serviceAccount:runner@runner-project.iam.gserviceaccount.com"
     )
     error_message = "The TLS identity grant must be scoped to the runner service account and pair secret."
+  }
+}
+
+run "runner_domain_optional_when_restricted" {
+  command = plan
+
+  variables {
+    restrict_ingress = true
+    runner_domain    = null
+  }
+
+  assert {
+    condition     = local.runner_proxy_domain == output.internal_runner_hostname
+    error_message = "Restricted deployments must not require a public runner domain."
   }
 }
 

@@ -23,6 +23,15 @@ trap 'print_final_error' EXIT
 # Configuration
 TIMEOUT=${HEALTH_CHECK_TIMEOUT:-600}  # Default 10 minutes, configurable via env var
 SLEEP=10
+PROXY_IGM=${PROXY_IGM:-}
+PROXY_TARGET=${PROXY_TARGET:-0}
+PROXY_GROUP=${PROXY_GROUP:-}
+PROXY_BACKEND_SSL=${PROXY_BACKEND_SSL:-}
+PROXY_BACKEND_HTTP=${PROXY_BACKEND_HTTP:-}
+proxy_enabled=0
+if [[ -n "$PROXY_IGM" ]]; then
+  proxy_enabled=1
+fi
 
 # Check if required environment variables are set
 if [[ -z "${RUNNER_IGM:-}" || -z "${GOOGLE_OAUTH_TOKEN:-}" || -z "${PROJECT_ID:-}" ]]; then
@@ -98,8 +107,12 @@ echo "🩺 Validating MIG health (timeout: ${TIMEOUT}s)..."
 echo "📋 Configuration:"
 echo "  - Runner MIG: $RUNNER_IGM"
 echo "  - Runner target: $RUNNER_TARGET instances"
-echo "  - Proxy MIG: $PROXY_IGM"
-echo "  - Proxy target: $PROXY_TARGET instances"
+if (( proxy_enabled == 1 )); then
+  echo "  - Proxy MIG: $PROXY_IGM"
+  echo "  - Proxy target: $PROXY_TARGET instances"
+else
+  echo "  - Proxy MIG: disabled"
+fi
 echo ""
 
 while : ; do
@@ -111,18 +124,20 @@ while : ; do
     echo "Final status:"
     echo "  - Runner MIG stable: $runner_stable"
     echo "  - Runner instances: $runner_running/$RUNNER_TARGET RUNNING, $runner_healthy/$RUNNER_TARGET HEALTHY"
-    echo "  - Proxy MIG stable: $proxy_stable"
-    if [[ "$proxy_all_ok" == "1" ]]; then
-      echo "  - Proxy backends: healthy"
-    else
-      echo "  - Proxy backends: unhealthy"
+    if (( proxy_enabled == 1 )); then
+      echo "  - Proxy MIG stable: $proxy_stable"
+      if [[ "$proxy_all_ok" == "1" ]]; then
+        echo "  - Proxy backends: healthy"
+      else
+        echo "  - Proxy backends: unhealthy"
+      fi
     fi
     echo ""
     echo "Possible causes:"
     if [[ "$runner_stable" != "1" ]]; then
       echo "  • Runner MIG is not stable - instances may still be starting/updating"
     fi
-    if [[ "$proxy_stable" != "1" ]]; then
+    if (( proxy_enabled == 1 )) && [[ "$proxy_stable" != "1" ]]; then
       echo "  • Proxy MIG is not stable - instances may still be starting/updating"
     fi
     if (( runner_running < RUNNER_TARGET )); then
@@ -131,7 +146,7 @@ while : ; do
     if (( runner_healthy < RUNNER_TARGET )); then
       echo "  • Not enough runner instances are HEALTHY - check health check configuration"
     fi
-    if (( proxy_all_ok != 1 )); then
+    if (( proxy_enabled == 1 && proxy_all_ok != 1 )); then
       echo "  • Proxy backends are not healthy - check load balancer configuration"
     fi
     exit 1
@@ -146,20 +161,24 @@ while : ; do
     exit 1
   fi
   
-  if ! proxy_igm_json="$(api_call GET "$PROXY_IGM")"; then
-    echo ""
-    echo "🚨 CRITICAL ERROR: Failed to get proxy MIG status"
-    echo "This indicates a problem with GCP API access or MIG configuration."
-    echo "The MIG might not exist yet or there's a permission issue."
-    exit 1
+  proxy_stable=1
+  proxy_current_size=0
+  if (( proxy_enabled == 1 )); then
+    if ! proxy_igm_json="$(api_call GET "$PROXY_IGM")"; then
+      echo ""
+      echo "🚨 CRITICAL ERROR: Failed to get proxy MIG status"
+      echo "This indicates a problem with GCP API access or MIG configuration."
+      echo "The MIG might not exist yet or there's a permission issue."
+      exit 1
+    fi
+    proxy_stable=$(echo "$proxy_igm_json" | grep -c '"isStable": true' 2>/dev/null || echo "0")
+    proxy_current_size=$(echo "$proxy_igm_json" | grep -o '"currentActions":[^}]*"creating":[0-9]*' | grep -o '[0-9]*$' || echo "0")
   fi
 
   runner_stable=$(echo "$runner_igm_json" | grep -c '"isStable": true' 2>/dev/null || echo "0")
-  proxy_stable=$(echo "$proxy_igm_json" | grep -c '"isStable": true' 2>/dev/null || echo "0")
   
   # Debug: Show current MIG status
   runner_current_size=$(echo "$runner_igm_json" | grep -o '"currentActions":[^}]*"creating":[0-9]*' | grep -o '[0-9]*$' || echo "0")
-  proxy_current_size=$(echo "$proxy_igm_json" | grep -o '"currentActions":[^}]*"creating":[0-9]*' | grep -o '[0-9]*$' || echo "0")
   
   if [[ "$runner_current_size" != "0" || "$proxy_current_size" != "0" ]]; then
     echo "🔄 MIG operations in progress:"
@@ -182,27 +201,29 @@ while : ; do
   proxy_all_ok=1
   
   # Try to check SSL backend health
-  ssl_health_data="{\"resourceGroupReference\": {\"group\": \"$PROXY_GROUP\"}}"
-  if out="$(api_call POST "$PROXY_BACKEND_SSL/getHealth" "$ssl_health_data" 2>/dev/null)"; then
-    healthy_count=$(count_occurrences "$out" '"healthState": "HEALTHY"')
-    if [[ "$healthy_count" -lt "$PROXY_TARGET" ]]; then
-      proxy_all_ok=0
-      echo "⚠️  SSL Backend not fully healthy ($healthy_count/$PROXY_TARGET)"
+  if (( proxy_enabled == 1 )); then
+    ssl_health_data="{\"resourceGroupReference\": {\"group\": \"$PROXY_GROUP\"}}"
+    if out="$(api_call POST "$PROXY_BACKEND_SSL/getHealth" "$ssl_health_data" 2>/dev/null)"; then
+      healthy_count=$(count_occurrences "$out" '"healthState": "HEALTHY"')
+      if [[ "$healthy_count" -lt "$PROXY_TARGET" ]]; then
+        proxy_all_ok=0
+        echo "⚠️  SSL Backend not fully healthy ($healthy_count/$PROXY_TARGET)"
+      fi
+    else
+      echo "ℹ️  SSL backend health check not available (this is normal for some configurations)"
     fi
-  else
-    echo "ℹ️  SSL backend health check not available (this is normal for some configurations)"
-  fi
-  
-  # Try to check HTTP backend health
-  http_health_data="{\"resourceGroupReference\": {\"group\": \"$PROXY_GROUP\"}}"
-  if out="$(api_call POST "$PROXY_BACKEND_HTTP/getHealth" "$http_health_data" 2>/dev/null)"; then
-    healthy_count=$(count_occurrences "$out" '"healthState": "HEALTHY"')
-    if [[ "$healthy_count" -lt "$PROXY_TARGET" ]]; then
-      proxy_all_ok=0
-      echo "⚠️  HTTP Backend not fully healthy ($healthy_count/$PROXY_TARGET)"
+
+    # Try to check HTTP backend health
+    http_health_data="{\"resourceGroupReference\": {\"group\": \"$PROXY_GROUP\"}}"
+    if out="$(api_call POST "$PROXY_BACKEND_HTTP/getHealth" "$http_health_data" 2>/dev/null)"; then
+      healthy_count=$(count_occurrences "$out" '"healthState": "HEALTHY"')
+      if [[ "$healthy_count" -lt "$PROXY_TARGET" ]]; then
+        proxy_all_ok=0
+        echo "⚠️  HTTP Backend not fully healthy ($healthy_count/$PROXY_TARGET)"
+      fi
+    else
+      echo "ℹ️  HTTP backend health check not available (this is normal for some configurations)"
     fi
-  else
-    echo "ℹ️  HTTP backend health check not available (this is normal for some configurations)"
   fi
 
   ok_runner_size=$(( runner_running >= RUNNER_TARGET ? 1 : 0 ))
@@ -212,11 +233,13 @@ while : ; do
   if (( runner_stable == 1 && proxy_stable == 1 && ok_runner_size == 1 && ok_runner_health == 1 )); then
     echo "✅ All core health checks passed"
     echo "  - Runner: $runner_running/$RUNNER_TARGET RUNNING, $runner_healthy/$RUNNER_TARGET HEALTHY"
-    echo "  - Proxy: MIG stable"
-    if [[ "$proxy_all_ok" == "1" ]]; then
-      echo "  - Backend services: healthy"
-    else
-      echo "  - Backend services: health check unavailable (this is normal)"
+    if (( proxy_enabled == 1 )); then
+      echo "  - Proxy: MIG stable"
+      if [[ "$proxy_all_ok" == "1" ]]; then
+        echo "  - Backend services: healthy"
+      else
+        echo "  - Backend services: health check unavailable (this is normal)"
+      fi
     fi
     trap - EXIT  # Remove the error trap for successful exit
     exit 0
@@ -229,7 +252,7 @@ while : ; do
     if [[ "$runner_stable" != "1" ]]; then
       echo "   → Runner MIG is not stable yet"
     fi
-    if [[ "$proxy_stable" != "1" ]]; then
+    if (( proxy_enabled == 1 )) && [[ "$proxy_stable" != "1" ]]; then
       echo "   → Proxy MIG is not stable yet"
     fi
     if (( runner_running < RUNNER_TARGET )); then
@@ -238,7 +261,7 @@ while : ; do
     if (( runner_healthy < RUNNER_TARGET )); then
       echo "   → Only $runner_healthy/$RUNNER_TARGET runner instances are HEALTHY"
     fi
-    if (( proxy_all_ok != 1 )); then
+    if (( proxy_enabled == 1 && proxy_all_ok != 1 )); then
       echo "   → Some proxy backends are not healthy"
     fi
   fi

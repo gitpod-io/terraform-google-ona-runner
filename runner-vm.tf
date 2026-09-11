@@ -2,7 +2,8 @@
 # Deploy runner service in a container on Compute Engine VM instances
 
 locals {
-  auth_proxy_url = "https://4430s--${var.runner_id}.${var.runner_domain}/initial-spec"
+  runner_proxy_domain = var.restrict_ingress ? local.internal_runner_hostname : coalesce(var.runner_domain, "")
+  auth_proxy_url      = var.restrict_ingress ? "https://${local.internal_runner_hostname}:4430/initial-spec" : "https://4430s--${var.runner_id}.${local.runner_proxy_domain}/initial-spec"
 
   proxy_enabled = var.proxy_config != null
   ca_enabled    = var.ca_certificate != null
@@ -11,7 +12,7 @@ locals {
   https_proxy = local.proxy_enabled ? var.proxy_config.https_proxy : ""
   all_proxy   = local.proxy_enabled ? var.proxy_config.all_proxy : ""
   # we add some default values to the no_proxy variable along with the customer provided values
-  no_proxy = local.proxy_enabled ? "${var.proxy_config.no_proxy},localhost,127.0.0.1,googleapis.com,metadata.google.internal,${var.runner_domain}" : ""
+  no_proxy = local.proxy_enabled ? "${var.proxy_config.no_proxy},localhost,127.0.0.1,googleapis.com,metadata.google.internal,${local.runner_proxy_domain}" : ""
 
   # Trust bundle certificate GCS bucket and object info
   ca_bucket_name = local.has_certificates ? google_storage_bucket.runner_assets.name : ""
@@ -51,7 +52,7 @@ resource "tls_self_signed_cert" "auth_proxy" {
   private_key_pem = tls_private_key.auth_proxy.private_key_pem
 
   subject {
-    common_name  = "${var.runner_name}-auth-proxy.internal"
+    common_name  = var.restrict_ingress ? local.internal_runner_hostname : "${var.runner_name}-auth-proxy.internal"
     organization = "Gitpod"
   }
 
@@ -71,7 +72,8 @@ resource "tls_self_signed_cert" "auth_proxy" {
   dns_names = [
     "${var.runner_name}-auth-proxy.internal",
     "auth-proxy.internal",
-    "localhost"
+    "localhost",
+    local.runner_proxy_domain,
   ]
 
   ip_addresses = [
@@ -127,7 +129,7 @@ data "cloudinit_config" "runner" {
       ARTIFACT_REGISTRY_HOST               = "${var.region}-docker.pkg.dev"
       API_ENDPOINT                         = var.api_endpoint
       BUILD_CACHE_BUCKET                   = google_storage_bucket.build_cache.name
-      PROXY_DOMAIN                         = var.runner_domain
+      PROXY_DOMAIN                         = local.runner_proxy_domain
       SSH_PORT                             = var.ssh_port
       INSTANCE_GROUP_NAME                  = local.runner_instance_group_name
       RUNNER_IMAGE_URL                     = var.development_version != "" ? local.runner_dev_image : local.runner_image
@@ -269,6 +271,7 @@ resource "google_compute_region_instance_group_manager" "runner" {
   project                   = var.project_id
   base_instance_name        = var.runner_name
   distribution_policy_zones = var.zones
+  target_size               = var.restrict_ingress ? 2 : null
 
   instance_lifecycle_policy {
     default_action_on_failure = "REPAIR"

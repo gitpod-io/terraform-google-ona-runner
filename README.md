@@ -39,16 +39,18 @@ provides a full infrastructure setup including VPC, DNS, and certificates.
 
 ## Restricted ingress
 
-`restrict_ingress = true` reserves two static internal IPv4 addresses in the
-runner subnet, assigns them to two fixed instances in the runner MIG, and creates
-a private Cloud DNS A record containing both addresses. The option defaults to
-`false` and is also available in the `runner-with-networking` example.
+The [`restricted-runner`](./modules/restricted-runner/) wrapper enables
+`restrict_ingress = true`. It removes the proxy and load balancer, reserves two
+static internal IPv4 addresses in the runner subnet, assigns them to two fixed
+instances in the runner MIG, and creates a private Cloud DNS A record containing
+both addresses.
 
 GCP does not support autoscaling a MIG with stateful IP configuration, so this
 mode uses exactly two runner instances. Updates recreate one instance at a time
 without surge or cross-zone redistribution, preserving each instance's address.
-The firewall permits TCP port 8089 only from environment-tagged VMs to the runner
-instances. This option does not remove the existing proxy or load balancer.
+The firewall permits the bootstrap and LLM HTTPS ports (`4430` and `8089`) only
+from environment-tagged VMs to the runner instances. Proxy VM, load-balancer,
+certificate, and proxy IAM resources are not created in this mode.
 
 The hostname is `runner.ona-<runner_id>.internal`, scoped to the configured VPC.
 It uses a separate private zone so it does not shadow the existing runner domain.
@@ -61,6 +63,12 @@ certificate from the trust bundle.
 Cloud DNS returns both addresses without checking whether a runner is listening.
 During replacement or failure, clients must be able to connect to the other
 address.
+
+Use the
+[`restricted-runner-with-networking`](./examples/restricted-runner-with-networking/)
+example to create a dedicated VPC with default-deny egress, Google APIs over
+Private Service Connect, and public HTTPS access to `app.gitpod.io` only by
+default.
 
 The Cloud DNS API must be enabled in the runner project. For Shared VPC, the
 reservations use the host project's runner subnet and the private zone is bound
