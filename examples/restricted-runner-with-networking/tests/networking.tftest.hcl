@@ -113,23 +113,28 @@ run "default_deny_with_private_google_apis" {
         "logging.googleapis.com",
         "monitoring.googleapis.com",
       ]) &&
-      length(google_monitoring_alert_policy.denied_egress) == 1 &&
-      length(google_monitoring_alert_policy.environment_api_denied) == 1 &&
-      length(google_monitoring_alert_policy.security_control_change) == 1 &&
-      length(google_monitoring_alert_policy.dns_nxdomain) == 1 &&
-      length(google_monitoring_alert_policy.inspection_fallback) == 0 &&
-      length(google_logging_metric.dns_nxdomain) == 1
+      google_monitoring_alert_policy.denied_egress.enabled &&
+      google_monitoring_alert_policy.environment_api_denied.enabled &&
+      google_monitoring_alert_policy.security_control_change.enabled &&
+      google_monitoring_alert_policy.dns_nxdomain.enabled &&
+      google_monitoring_alert_policy.inspection_fallback.enabled &&
+      google_logging_metric.dns_nxdomain.name == "test-runner-dns-nxdomain"
     )
-    error_message = "Extended API auditing and baseline security alerts must be enabled by default."
+    error_message = "Extended API auditing and security alerts must always be enabled."
   }
 
   assert {
     condition = (
-      length(google_network_security_security_profile.url_filtering) == 0 &&
-      length(google_compute_network_firewall_policy_rule.url_filtering) == 0 &&
+      toset(one(one(google_network_security_security_profile.url_filtering.url_filtering_profile).url_filters).urls) == toset(["app.gitpod.io"]) &&
+      google_network_security_security_profile_group.url_filtering.name == "test-runner-url-filter" &&
+      toset(keys(google_network_security_firewall_endpoint.url_filtering)) == toset(["us-central1-a", "us-central1-b"]) &&
+      google_compute_network_firewall_policy_rule.url_filtering.action == "apply_security_profile_group" &&
+      google_compute_network_firewall_policy_rule.url_filtering.enable_logging &&
+      !google_compute_network_firewall_policy_rule.url_filtering.tls_inspect &&
+      toset(google_compute_network_firewall_policy_rule.url_filtering.target_service_accounts) == toset(["test-runner-env-vm@runner-project.iam.gserviceaccount.com"]) &&
       length(google_compute_packet_mirroring.environment) == 0
     )
-    error_message = "Billable deep inspection and packet mirroring must remain opt-in."
+    error_message = "URL filtering must always inspect environment HTTPS in every configured zone; operator-managed packet collection remains optional."
   }
 
   assert {
@@ -138,28 +143,6 @@ run "default_deny_with_private_google_apis" {
       toset(output.internal_runner_ips) == toset(["10.0.0.10", "10.0.0.11"])
     )
     error_message = "The example outputs must expose the effective public allowlist and restricted runner addresses."
-  }
-}
-
-run "disables_optional_audit_and_alerts" {
-  command = plan
-
-  variables {
-    enable_extended_audit_logs = false
-    enable_security_alerts     = false
-  }
-
-  assert {
-    condition = (
-      length(google_project_iam_audit_config.extended) == 0 &&
-      length(google_logging_metric.dns_nxdomain) == 0 &&
-      length(google_monitoring_alert_policy.denied_egress) == 0 &&
-      length(google_monitoring_alert_policy.environment_api_denied) == 0 &&
-      length(google_monitoring_alert_policy.security_control_change) == 0 &&
-      length(google_monitoring_alert_policy.dns_nxdomain) == 0 &&
-      length(google_monitoring_alert_policy.inspection_fallback) == 0
-    )
-    error_message = "Disabling optional audit coverage and alerts must omit their resources, including the alert-only log metric."
   }
 }
 
@@ -188,7 +171,6 @@ run "deep_inspection_integrations" {
   command = plan
 
   variables {
-    enable_url_filtering                       = true
     firewall_allowed_ip_ranges                 = ["203.0.113.10/32"]
     url_filtering_tls_inspection_policy        = "https://networksecurity.googleapis.com/v1/projects/runner-project/locations/us-central1/tlsInspectionPolicies/runner-egress"
     packet_mirroring_collector_forwarding_rule = "https://www.googleapis.com/compute/v1/projects/runner-project/regions/us-central1/forwardingRules/packet-collector"
@@ -196,9 +178,8 @@ run "deep_inspection_integrations" {
 
   assert {
     condition = (
-      length(google_network_security_security_profile.url_filtering) == 1 &&
-      toset(one(one(google_network_security_security_profile.url_filtering[0].url_filtering_profile).url_filters).urls) == toset(["app.gitpod.io"]) &&
-      length(google_network_security_security_profile_group.url_filtering) == 1 &&
+      toset(one(one(google_network_security_security_profile.url_filtering.url_filtering_profile).url_filters).urls) == toset(["app.gitpod.io"]) &&
+      google_network_security_security_profile_group.url_filtering.name == "test-runner-url-filter" &&
       toset(keys(google_network_security_firewall_endpoint.url_filtering)) == toset(["us-central1-a", "us-central1-b"])
     )
     error_message = "URL filtering must deploy the approved domain profile and an endpoint in every configured zone."
@@ -206,10 +187,10 @@ run "deep_inspection_integrations" {
 
   assert {
     condition = (
-      google_compute_network_firewall_policy_rule.url_filtering[0].action == "apply_security_profile_group" &&
-      google_compute_network_firewall_policy_rule.url_filtering[0].enable_logging &&
-      google_compute_network_firewall_policy_rule.url_filtering[0].tls_inspect &&
-      toset(google_compute_network_firewall_policy_rule.url_filtering[0].target_service_accounts) == toset(["test-runner-env-vm@runner-project.iam.gserviceaccount.com"]) &&
+      google_compute_network_firewall_policy_rule.url_filtering.action == "apply_security_profile_group" &&
+      google_compute_network_firewall_policy_rule.url_filtering.enable_logging &&
+      google_compute_network_firewall_policy_rule.url_filtering.tls_inspect &&
+      toset(google_compute_network_firewall_policy_rule.url_filtering.target_service_accounts) == toset(["test-runner-env-vm@runner-project.iam.gserviceaccount.com"]) &&
       google_compute_network_firewall_policy_rule.url_filtering_allowed_ip_ranges[0].priority == 225 &&
       toset(one(google_compute_network_firewall_policy_rule.url_filtering_allowed_ip_ranges[0].match).dest_ip_ranges) == toset(["203.0.113.10/32"]) &&
       alltrue([
@@ -230,21 +211,10 @@ run "deep_inspection_integrations" {
   }
 }
 
-run "rejects_tls_policy_without_url_filtering" {
-  command = plan
-
-  variables {
-    url_filtering_tls_inspection_policy = "https://networksecurity.googleapis.com/v1/projects/runner-project/locations/us-central1/tlsInspectionPolicies/runner-egress"
-  }
-
-  expect_failures = [var.url_filtering_tls_inspection_policy]
-}
-
 run "rejects_tls_policy_in_another_region" {
   command = plan
 
   variables {
-    enable_url_filtering                = true
     url_filtering_tls_inspection_policy = "https://networksecurity.googleapis.com/v1/projects/runner-project/locations/us-east1/tlsInspectionPolicies/runner-egress"
   }
 
@@ -273,7 +243,8 @@ run "extended_allowlist" {
     condition = (
       toset(one(google_compute_network_firewall_policy_rule.allowed_domains.match).dest_fqdns) == toset(["app.gitpod.io", "github.com"]) &&
       length(google_compute_network_firewall_policy_rule.allowed_ip_ranges) == 1 &&
-      toset(one(google_compute_network_firewall_policy_rule.allowed_ip_ranges[0].match).dest_ip_ranges) == toset(["192.0.2.0/24"])
+      toset(one(google_compute_network_firewall_policy_rule.allowed_ip_ranges[0].match).dest_ip_ranges) == toset(["192.0.2.0/24"]) &&
+      toset(one(google_compute_network_firewall_policy_rule.url_filtering_allowed_ip_ranges[0].match).dest_ip_ranges) == toset(["192.0.2.0/24"])
     )
     error_message = "Operators must be able to extend the HTTPS domain and CIDR allowlists."
   }

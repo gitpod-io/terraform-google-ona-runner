@@ -144,12 +144,6 @@ variable "security_notification_channels" {
   }
 }
 
-variable "enable_security_alerts" {
-  description = "Create Cloud Monitoring policies for denied egress, denied environment API calls, security-control changes, DNS anomalies, and inspection fallback."
-  type        = bool
-  default     = true
-}
-
 variable "dns_nxdomain_alert_threshold" {
   description = "Number of NXDOMAIN responses in five minutes that triggers the DNS anomaly alert."
   type        = number
@@ -159,18 +153,6 @@ variable "dns_nxdomain_alert_threshold" {
     condition     = var.dns_nxdomain_alert_threshold >= 1
     error_message = "dns_nxdomain_alert_threshold must be at least 1."
   }
-}
-
-variable "enable_extended_audit_logs" {
-  description = "Enable Data Access audit logs for Artifact Registry, Cloud Logging, Cloud Monitoring, and Cloud KMS in addition to the runner module's existing audit coverage."
-  type        = bool
-  default     = true
-}
-
-variable "enable_url_filtering" {
-  description = "Enable project-scoped Cloud NGFW Enterprise URL filtering for environment HTTPS traffic. This creates a billable firewall endpoint in every configured zone."
-  type        = bool
-  default     = false
 }
 
 variable "url_filtering_tls_inspection_policy" {
@@ -184,11 +166,6 @@ variable "url_filtering_tls_inspection_policy" {
       can(regex("^https://networksecurity\\.googleapis\\.com/v1/(projects|organizations)/[^/]+/locations/${var.region}/tlsInspectionPolicies/[^/]+$", var.url_filtering_tls_inspection_policy))
     )
     error_message = "url_filtering_tls_inspection_policy must be a fully qualified Network Security API TLS inspection policy URL in the runner region."
-  }
-
-  validation {
-    condition     = var.url_filtering_tls_inspection_policy == null || var.enable_url_filtering
-    error_message = "enable_url_filtering must be true when url_filtering_tls_inspection_policy is set."
   }
 }
 

@@ -1,5 +1,5 @@
 resource "google_project_iam_audit_config" "extended" {
-  for_each = var.enable_extended_audit_logs ? local.extended_audit_services : toset([])
+  for_each = local.extended_audit_services
 
   project = var.project_id
   service = each.value
@@ -51,8 +51,6 @@ resource "google_logging_project_sink" "security_export" {
 }
 
 resource "google_logging_metric" "dns_nxdomain" {
-  count = var.enable_security_alerts ? 1 : 0
-
   project     = var.project_id
   name        = "${local.name_prefix}-dns-nxdomain"
   description = "NXDOMAIN responses observed from the restricted runner VPC."
@@ -64,8 +62,6 @@ resource "google_logging_metric" "dns_nxdomain" {
 }
 
 resource "google_monitoring_alert_policy" "denied_egress" {
-  count = var.enable_security_alerts ? 1 : 0
-
   project               = var.project_id
   display_name          = "${local.name_prefix}: denied egress"
   combiner              = "OR"
@@ -106,8 +102,6 @@ resource "google_monitoring_alert_policy" "denied_egress" {
 }
 
 resource "google_monitoring_alert_policy" "environment_api_denied" {
-  count = var.enable_security_alerts ? 1 : 0
-
   project               = var.project_id
   display_name          = "${local.name_prefix}: environment API denied"
   combiner              = "OR"
@@ -146,8 +140,6 @@ resource "google_monitoring_alert_policy" "environment_api_denied" {
 }
 
 resource "google_monitoring_alert_policy" "security_control_change" {
-  count = var.enable_security_alerts ? 1 : 0
-
   project               = var.project_id
   display_name          = "${local.name_prefix}: security control changed"
   combiner              = "OR"
@@ -195,8 +187,6 @@ resource "google_monitoring_alert_policy" "security_control_change" {
 }
 
 resource "google_monitoring_alert_policy" "dns_nxdomain" {
-  count = var.enable_security_alerts ? 1 : 0
-
   project               = var.project_id
   display_name          = "${local.name_prefix}: DNS NXDOMAIN anomaly"
   combiner              = "OR"
@@ -209,7 +199,7 @@ resource "google_monitoring_alert_policy" "dns_nxdomain" {
     display_name = "NXDOMAIN responses exceeded the five-minute threshold"
 
     condition_threshold {
-      filter          = "metric.type=\"logging.googleapis.com/user/${google_logging_metric.dns_nxdomain[0].name}\" AND resource.type=\"dns_query\""
+      filter          = "metric.type=\"logging.googleapis.com/user/${google_logging_metric.dns_nxdomain.name}\" AND resource.type=\"dns_query\""
       comparison      = "COMPARISON_GT"
       threshold_value = var.dns_nxdomain_alert_threshold
       duration        = "0s"
@@ -229,8 +219,6 @@ resource "google_monitoring_alert_policy" "dns_nxdomain" {
 }
 
 resource "google_monitoring_alert_policy" "inspection_fallback" {
-  count = var.enable_security_alerts && var.enable_url_filtering ? 1 : 0
-
   project               = var.project_id
   display_name          = "${local.name_prefix}: inspection fallback allowed traffic"
   combiner              = "OR"

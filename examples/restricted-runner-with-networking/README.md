@@ -49,7 +49,7 @@ Development environments cannot reach SCMs, editor downloads, package registries
 
 Cloud NGFW resolves FQDN objects to destination IP addresses; it does not inspect TLS SNI or URLs. Use Cloud NGFW URL filtering and TLS inspection if workloads must distinguish an approved hostname from other services sharing the same destination IP.
 
-Set `enable_url_filtering = true` to create project-scoped Cloud NGFW Enterprise URL-filtering profiles and a billable firewall endpoint in every configured zone. Among hostname-based connections, only `firewall_allowed_domains` are allowed by the profile's SNI or HTTP host inspection; its implicit fallback denies other domains. Explicit `firewall_allowed_ip_ranges` bypass Layer 7 inspection. The rule targets the environment VM service account, leaving runner control-plane traffic on the FQDN path.
+The example always creates project-scoped Cloud NGFW Enterprise URL-filtering profiles and a billable firewall endpoint in every configured zone. Among hostname-based connections, only `firewall_allowed_domains` are allowed by the profile's SNI or HTTP host inspection; its implicit fallback denies other domains. Explicit `firewall_allowed_ip_ranges` bypass Layer 7 inspection. The rule targets the environment VM service account, leaving runner control-plane traffic on the FQDN path.
 
 URL filtering without TLS inspection relies on plaintext SNI and cannot inspect encrypted headers. To enable decryption, provide an existing `url_filtering_tls_inspection_policy` and install its issuing CA in environment clients. Certificate pinning and protocols unsupported by Cloud NGFW can fail when inspection is enabled.
 

@@ -26,8 +26,8 @@ security_log_retention_days = 90
 #   "projects/my-runner-project/notificationChannels/1234567890",
 # ]
 
-# Optional higher-assurance inspection. URL filtering creates billable Cloud
-# NGFW Enterprise endpoints in every zone. Packet mirroring requires an
-# existing regional INTERNAL collector forwarding rule.
-# enable_url_filtering = true
+# URL filtering and its billable Cloud NGFW Enterprise endpoints are always
+# enabled. Optional TLS inspection requires an existing regional policy, and
+# packet mirroring requires an existing regional INTERNAL collector rule.
+# url_filtering_tls_inspection_policy = "https://networksecurity.googleapis.com/v1/projects/my-runner-project/locations/us-central1/tlsInspectionPolicies/runner-egress"
 # packet_mirroring_collector_forwarding_rule = "https://www.googleapis.com/compute/v1/projects/my-runner-project/regions/us-central1/forwardingRules/packet-collector"

@@ -1,6 +1,4 @@
 resource "google_network_security_security_profile" "url_filtering" {
-  count = var.enable_url_filtering ? 1 : 0
-
   parent      = "projects/${var.project_id}"
   location    = "global"
   name        = "${local.name_prefix}-url-filter"
@@ -20,18 +18,16 @@ resource "google_network_security_security_profile" "url_filtering" {
 }
 
 resource "google_network_security_security_profile_group" "url_filtering" {
-  count = var.enable_url_filtering ? 1 : 0
-
   parent                = "projects/${var.project_id}"
   location              = "global"
   name                  = "${local.name_prefix}-url-filter"
   description           = "URL filtering profile group for restricted environment egress."
-  url_filtering_profile = google_network_security_security_profile.url_filtering[0].self_link
+  url_filtering_profile = google_network_security_security_profile.url_filtering.self_link
   labels                = local.common_labels
 }
 
 resource "google_network_security_firewall_endpoint" "url_filtering" {
-  for_each = var.enable_url_filtering ? toset(var.zones) : toset([])
+  for_each = toset(var.zones)
 
   parent             = "projects/${var.project_id}"
   location           = each.value
@@ -55,7 +51,7 @@ resource "google_network_security_firewall_endpoint_association" "url_filtering"
 }
 
 resource "google_compute_network_firewall_policy_rule" "url_filtering_allowed_ip_ranges" {
-  count = var.enable_url_filtering && length(var.firewall_allowed_ip_ranges) > 0 ? 1 : 0
+  count = length(var.firewall_allowed_ip_ranges) > 0 ? 1 : 0
 
   project                 = var.project_id
   firewall_policy         = google_compute_network_firewall_policy.egress.name
@@ -77,8 +73,6 @@ resource "google_compute_network_firewall_policy_rule" "url_filtering_allowed_ip
 }
 
 resource "google_compute_network_firewall_policy_rule" "url_filtering" {
-  count = var.enable_url_filtering ? 1 : 0
-
   project                 = var.project_id
   firewall_policy         = google_compute_network_firewall_policy.egress.name
   priority                = 250
@@ -87,7 +81,7 @@ resource "google_compute_network_firewall_policy_rule" "url_filtering" {
   rule_name               = "inspect-environment-https"
   description             = "Apply SNI and URL filtering to environment HTTPS traffic."
   enable_logging          = true
-  security_profile_group  = "https://networksecurity.googleapis.com/v1/${google_network_security_security_profile_group.url_filtering[0].id}"
+  security_profile_group  = "https://networksecurity.googleapis.com/v1/${google_network_security_security_profile_group.url_filtering.id}"
   target_service_accounts = [module.runner.environment_vm_service_account_email]
   tls_inspect             = var.url_filtering_tls_inspection_policy != null
 

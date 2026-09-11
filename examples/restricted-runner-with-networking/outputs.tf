@@ -36,8 +36,8 @@ output "security_log_export_writer_identities" {
 }
 
 output "url_filtering_security_profile_group" {
-  description = "Cloud NGFW Enterprise security profile group used for environment HTTPS traffic, or null when disabled."
-  value       = try("https://networksecurity.googleapis.com/v1/${google_network_security_security_profile_group.url_filtering[0].id}", null)
+  description = "Cloud NGFW Enterprise security profile group used for environment HTTPS traffic."
+  value       = "https://networksecurity.googleapis.com/v1/${google_network_security_security_profile_group.url_filtering.id}"
 }
 
 output "packet_mirroring_policy_name" {
