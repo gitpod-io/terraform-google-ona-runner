@@ -356,3 +356,14 @@ variable "use_authoritative_project_metadata" {
   type        = bool
   default     = true
 }
+
+variable "internal_runner_endpoint_version" {
+  description = "Increase to rotate the internal runner endpoint's TLS key and certificate. Used when restrict_ingress is true."
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.internal_runner_endpoint_version >= 1 && floor(var.internal_runner_endpoint_version) == var.internal_runner_endpoint_version
+    error_message = "internal_runner_endpoint_version must be a positive integer."
+  }
+}

@@ -58,10 +58,28 @@ terraform init -backend=false
 terraform test -filter=tests/internal-runner.tftest.hcl
 ```
 
-These tests use mocked providers and plan operations, so they do not need cloud
-credentials or create resources. They cover the default configuration, enabled
-private addressing, and Shared VPC placement. Module deployments retain the
+These tests use real provider schemas with resource and data overrides
+and plan operations, so they do not need cloud credentials or create resources.
+They cover defaults, private addressing, Shared VPC placement, public trust,
+versioned runner configuration, and managed versus externally managed TLS IAM. Module deployments retain the
 Terraform version requirement in `versions.tf`.
+
+### Internal TLS lifecycle test
+
+Run `python3 tests/test_internal_runner_tls.py` with Terraform 1.11+, Python 3,
+and OpenSSL installed. It loads the TLS resources from the production
+`internal-runner-endpoint.tf` into an isolated fixture with synthetic DNS and IAM
+inputs, using Google 7.6.0 and TLS 4.4.0 providers against a local Secret Manager
+HTTP test server. Use
+`--google-provider-version=<version>` to verify another Google provider version. It generates
+only test identities, uses no cloud credentials, and removes its temporary
+working directory on completion.
+
+The test checks interrupted saved-plan applies, retry, unchanged plans, explicit
+key rotation, replacement secrets whose version numbering restarts, automatic
+and CMEK replication, certificate/key matching, and private-key exclusion from
+state, backups, and unpacked saved plans. The HTTP server verifies configured
+replication payloads; it does not establish live GCP IAM or KMS access.
 
 ### Generating Documentation
 

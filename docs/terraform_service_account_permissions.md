@@ -448,3 +448,23 @@ If using a GCS bucket for Terraform state, add the service account to the bucket
 ```bash
 gsutil iam ch serviceAccount:gitpod-terraform@your-project.iam.gserviceaccount.com:roles/storage.objectAdmin gs://your-backend-bucket
 ```
+
+## Internal runner endpoint preparation
+
+When `restrict_ingress` is enabled, the deployer creates two Secret Manager
+secrets in the runner project: `<runner_id>-internal-llm-key` and
+`<runner_id>-internal-llm-tls`. It needs secret create/get/delete, version
+add/access/get/enable, and IAM get/set permissions when this module manages the
+runner's pair-secret grant. Existing deployment roles may already provide these
+permissions. Do not grant environment service accounts access to either secret.
+
+The bootstrap key is reread through an ephemeral provider resource; use the
+required Terraform and provider versions rather than a normal secret data
+source. The runner needs `secretmanager.versions.access` on the pair secret only
+for this feature. Existing project-level runner grants can allow additional
+operations and remain unchanged by this feature.
+
+With CMEK, the Secret Manager service agent needs encryption/decryption access
+to the selected key in its region. The module orders newly created CMEK grants
+before creating the TLS secrets. For externally managed keys, provide that
+service-agent grant before applying.

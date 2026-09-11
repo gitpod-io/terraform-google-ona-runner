@@ -15,7 +15,7 @@ output "load_balancer_ip" {
 
 output "runner_instance_group_name" {
   description = "Name of the runner VM instance gruop manager"
-  value       = google_compute_region_instance_group_manager.runner.name
+  value       = google_compute_region_instance_group_manager.runner[local.runner_instance_group_variant].name
 }
 
 output "proxy_instance_group_name" {
@@ -50,7 +50,7 @@ output "logs_url" {
 }
 
 output "internal_runner_ips" {
-  description = "Reserved internal runner IPs, not yet attached to VMs. Empty when restrict_ingress is disabled."
+  description = "Static IP addresses assigned to the runner MIG. Empty when restrict_ingress is disabled."
   value       = google_compute_address.internal_runner[*].address
 }
 

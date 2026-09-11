@@ -7,12 +7,14 @@ data "google_client_config" "health_validation" {}
 locals {
   health_validation_project = var.project_id
   health_validation_token   = data.google_client_config.health_validation.access_token
+  runner_target_instances   = var.restrict_ingress ? 2 : google_compute_region_autoscaler.runner[0].autoscaling_policy[0].min_replicas
 }
 
 # Wait for MIGs to be fully provisioned before health validation
 resource "time_sleep" "wait_for_mig_provisioning" {
   depends_on = [
     google_compute_region_instance_group_manager.runner,
+    google_compute_region_per_instance_config.internal_runner,
     google_compute_region_instance_group_manager.proxy,
     google_compute_region_autoscaler.runner,
     google_compute_region_autoscaler.proxy
@@ -26,8 +28,8 @@ resource "null_resource" "health_validation_external" {
   count = var.loadbalancer_type == "external" ? 1 : 0
 
   triggers = {
-    runner_igm           = google_compute_region_instance_group_manager.runner.self_link
-    runner_target        = tostring(google_compute_region_autoscaler.runner.autoscaling_policy[0].min_replicas)
+    runner_igm           = google_compute_region_instance_group_manager.runner[local.runner_instance_group_variant].self_link
+    runner_target        = tostring(local.runner_target_instances)
     proxy_igm            = google_compute_region_instance_group_manager.proxy.self_link
     proxy_target         = tostring(google_compute_region_autoscaler.proxy.autoscaling_policy[0].min_replicas)
     proxy_instance_group = google_compute_region_instance_group_manager.proxy.instance_group
@@ -40,8 +42,8 @@ resource "null_resource" "health_validation_external" {
   provisioner "local-exec" {
     command = "echo 'Starting health validation...' && /bin/bash ${path.module}/health-check.sh"
     environment = {
-      RUNNER_IGM                 = google_compute_region_instance_group_manager.runner.self_link
-      RUNNER_TARGET              = google_compute_region_autoscaler.runner.autoscaling_policy[0].min_replicas
+      RUNNER_IGM                 = google_compute_region_instance_group_manager.runner[local.runner_instance_group_variant].self_link
+      RUNNER_TARGET              = local.runner_target_instances
       PROXY_IGM                  = google_compute_region_instance_group_manager.proxy.self_link
       PROXY_TARGET               = google_compute_region_autoscaler.proxy.autoscaling_policy[0].min_replicas
       PROXY_GROUP                = google_compute_region_instance_group_manager.proxy.instance_group
@@ -69,8 +71,8 @@ resource "null_resource" "health_validation_internal" {
   count = var.loadbalancer_type == "internal" ? 1 : 0
 
   triggers = {
-    runner_igm           = google_compute_region_instance_group_manager.runner.self_link
-    runner_target        = tostring(google_compute_region_autoscaler.runner.autoscaling_policy[0].min_replicas)
+    runner_igm           = google_compute_region_instance_group_manager.runner[local.runner_instance_group_variant].self_link
+    runner_target        = tostring(local.runner_target_instances)
     proxy_igm            = google_compute_region_instance_group_manager.proxy.self_link
     proxy_target         = tostring(google_compute_region_autoscaler.proxy.autoscaling_policy[0].min_replicas)
     proxy_instance_group = google_compute_region_instance_group_manager.proxy.instance_group
@@ -83,8 +85,8 @@ resource "null_resource" "health_validation_internal" {
   provisioner "local-exec" {
     command = "echo 'Starting health validation...' && /bin/bash ${path.module}/health-check.sh"
     environment = {
-      RUNNER_IGM                 = google_compute_region_instance_group_manager.runner.self_link
-      RUNNER_TARGET              = google_compute_region_autoscaler.runner.autoscaling_policy[0].min_replicas
+      RUNNER_IGM                 = google_compute_region_instance_group_manager.runner[local.runner_instance_group_variant].self_link
+      RUNNER_TARGET              = local.runner_target_instances
       PROXY_IGM                  = google_compute_region_instance_group_manager.proxy.self_link
       PROXY_TARGET               = google_compute_region_autoscaler.proxy.autoscaling_policy[0].min_replicas
       PROXY_GROUP                = google_compute_region_instance_group_manager.proxy.instance_group
