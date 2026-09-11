@@ -88,6 +88,17 @@ variable "firewall_allowed_ip_ranges" {
   }
 }
 
+variable "security_log_bucket_location" {
+  description = "Location for the dedicated security log bucket. Use a location compatible with the deployment's data-residency requirements."
+  type        = string
+  default     = "global"
+
+  validation {
+    condition     = length(trimspace(var.security_log_bucket_location)) > 0
+    error_message = "security_log_bucket_location must not be empty."
+  }
+}
+
 variable "labels" {
   description = "Labels applied to supported GCP resources."
   type        = map(string)

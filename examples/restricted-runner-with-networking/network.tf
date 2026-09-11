@@ -51,6 +51,18 @@ resource "google_compute_router_nat" "egress" {
   }
 }
 
+resource "google_dns_policy" "query_logging" {
+  project        = var.project_id
+  name           = "${local.name_prefix}-query-logging"
+  enable_logging = true
+
+  networks {
+    network_url = google_compute_network.runner.id
+  }
+
+  depends_on = [google_project_service.required]
+}
+
 resource "google_compute_global_address" "google_apis" {
   project      = var.project_id
   name         = "${local.name_prefix}-google-apis"

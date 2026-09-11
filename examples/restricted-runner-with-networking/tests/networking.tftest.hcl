@@ -11,8 +11,9 @@ provider "google-beta" {
 override_module {
   target = module.runner
   outputs = {
-    internal_runner_ips      = ["10.0.0.10", "10.0.0.11"]
-    internal_runner_hostname = "runner.ona-00000000-0000-4000-8000-000000000001.internal"
+    environment_vm_service_account_email = "test-runner-env-vm@runner-project.iam.gserviceaccount.com"
+    internal_runner_ips                  = ["10.0.0.10", "10.0.0.11"]
+    internal_runner_hostname             = "runner.ona-00000000-0000-4000-8000-000000000001.internal"
   }
 }
 
@@ -32,9 +33,22 @@ run "default_deny_with_private_google_apis" {
     condition = (
       google_compute_network.runner.network_firewall_policy_enforcement_order == "BEFORE_CLASSIC_FIREWALL" &&
       google_compute_subnetwork.runner.private_ip_google_access &&
-      google_compute_router_nat.egress.source_subnetwork_ip_ranges_to_nat == "LIST_OF_SUBNETWORKS"
+      google_compute_subnetwork.runner.log_config[0].aggregation_interval == "INTERVAL_5_SEC" &&
+      google_compute_subnetwork.runner.log_config[0].flow_sampling == 1 &&
+      google_compute_subnetwork.runner.log_config[0].metadata == "INCLUDE_ALL_METADATA" &&
+      google_compute_router_nat.egress.source_subnetwork_ip_ranges_to_nat == "LIST_OF_SUBNETWORKS" &&
+      google_compute_router_nat.egress.log_config[0].enable &&
+      google_compute_router_nat.egress.log_config[0].filter == "ALL"
     )
     error_message = "The VPC must evaluate Cloud NGFW first and retain private Google access plus Cloud NAT."
+  }
+
+  assert {
+    condition = (
+      google_dns_policy.query_logging.enable_logging &&
+      length(google_dns_policy.query_logging.networks) == 1
+    )
+    error_message = "Cloud DNS query logging must cover the restricted runner VPC."
   }
 
   assert {
@@ -71,9 +85,52 @@ run "default_deny_with_private_google_apis" {
       toset(one(one(google_compute_network_firewall_policy_rule.allowed_domains.match).layer4_configs).ports) == toset(["443"]) &&
       length(google_compute_network_firewall_policy_rule.allowed_ip_ranges) == 0 &&
       google_compute_network_firewall_policy_rule.deny_all.action == "deny" &&
+      google_compute_network_firewall_policy_rule.deny_all.enable_logging &&
       google_compute_network_firewall_policy_rule.deny_all.priority == 65000
     )
     error_message = "The default policy must allow only internal, PSC, and app.gitpod.io HTTPS before denying all other egress."
+  }
+  assert {
+    condition = (
+      google_logging_project_bucket_config.security_archive.retention_days == 90 &&
+      google_logging_project_bucket_config.security_archive.enable_analytics &&
+      google_logging_project_bucket_config.security_archive.locked &&
+      google_logging_project_bucket_config.security_archive.deletion_policy == "ABANDON" &&
+      strcontains(google_logging_project_sink.security_archive.filter, "dns.googleapis.com/dns_queries") &&
+      strcontains(google_logging_project_sink.security_archive.filter, "compute.googleapis.com/vpc_flows")
+    )
+    error_message = "Security logs must be routed to a locked 90-day analytics bucket that survives Terraform destroy."
+  }
+
+  assert {
+    condition = (
+      toset(keys(google_project_iam_audit_config.extended)) == toset([
+        "artifactregistry.googleapis.com",
+        "cloudkms.googleapis.com",
+        "logging.googleapis.com",
+        "monitoring.googleapis.com",
+      ]) &&
+      google_monitoring_alert_policy.denied_egress.enabled &&
+      google_monitoring_alert_policy.environment_api_denied.enabled &&
+      google_monitoring_alert_policy.security_control_change.enabled &&
+      google_monitoring_alert_policy.dns_nxdomain.enabled &&
+      google_monitoring_alert_policy.inspection_fallback.enabled &&
+      google_logging_metric.dns_nxdomain.name == "test-runner-dns-nxdomain"
+    )
+    error_message = "Extended API auditing and security alerts must always be enabled."
+  }
+
+  assert {
+    condition = (
+      toset(one(one(google_network_security_security_profile.url_filtering.url_filtering_profile).url_filters).urls) == toset(["app.gitpod.io"]) &&
+      google_network_security_security_profile_group.url_filtering.name == "test-runner-url-filter" &&
+      toset(keys(google_network_security_firewall_endpoint.url_filtering)) == toset(["us-central1-a", "us-central1-b"]) &&
+      google_compute_network_firewall_policy_rule.url_filtering.action == "apply_security_profile_group" &&
+      google_compute_network_firewall_policy_rule.url_filtering.enable_logging &&
+      !google_compute_network_firewall_policy_rule.url_filtering.tls_inspect &&
+      toset(google_compute_network_firewall_policy_rule.url_filtering.target_service_accounts) == toset(["test-runner-env-vm@runner-project.iam.gserviceaccount.com"])
+    )
+    error_message = "URL filtering must always inspect environment HTTPS in every configured zone."
   }
 
   assert {
@@ -97,7 +154,8 @@ run "extended_allowlist" {
     condition = (
       toset(one(google_compute_network_firewall_policy_rule.allowed_domains.match).dest_fqdns) == toset(["app.gitpod.io", "github.com"]) &&
       length(google_compute_network_firewall_policy_rule.allowed_ip_ranges) == 1 &&
-      toset(one(google_compute_network_firewall_policy_rule.allowed_ip_ranges[0].match).dest_ip_ranges) == toset(["192.0.2.0/24"])
+      toset(one(google_compute_network_firewall_policy_rule.allowed_ip_ranges[0].match).dest_ip_ranges) == toset(["192.0.2.0/24"]) &&
+      toset(one(google_compute_network_firewall_policy_rule.url_filtering_allowed_ip_ranges[0].match).dest_ip_ranges) == toset(["192.0.2.0/24"])
     )
     error_message = "Operators must be able to extend the HTTPS domain and CIDR allowlists."
   }

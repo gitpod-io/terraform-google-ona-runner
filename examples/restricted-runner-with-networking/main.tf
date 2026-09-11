@@ -17,6 +17,10 @@ module "runner" {
     google_compute_global_forwarding_rule.google_apis,
     google_dns_record_set.google_apis,
     google_dns_record_set.google_apis_wildcard,
+    google_dns_policy.query_logging,
+    google_logging_project_sink.security_archive,
+    google_project_iam_audit_config.extended,
+    google_project_iam_member.security_archive_writer,
     google_project_service.required,
   ]
 }

@@ -10,3 +10,7 @@ runner_name  = "ona-runner"
 firewall_allowed_domains = [
   "app.gitpod.io",
 ]
+
+# Security evidence is kept in a locked 90-day Log Analytics bucket. Change
+# only its location when data-residency requirements prohibit the global default.
+security_log_bucket_location = "global"

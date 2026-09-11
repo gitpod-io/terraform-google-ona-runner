@@ -21,7 +21,6 @@ resource "google_compute_network_firewall_policy_rule" "internal" {
   action          = "goto_next"
   rule_name       = "allow-internal-vpc"
   description     = "Allow internal VPC traffic to continue through the runner module's VPC firewall rules."
-  enable_logging  = true
 
   match {
     dest_ip_ranges = [var.subnet_cidr]
@@ -40,7 +39,6 @@ resource "google_compute_network_firewall_policy_rule" "google_apis_psc" {
   action          = "goto_next"
   rule_name       = "allow-google-apis-psc"
   description     = "Allow HTTPS to the Google APIs Private Service Connect endpoint."
-  enable_logging  = true
 
   match {
     dest_ip_ranges = ["${var.psc_google_apis_ip}/32"]
@@ -60,7 +58,6 @@ resource "google_compute_network_firewall_policy_rule" "allowed_domains" {
   action          = "goto_next"
   rule_name       = "allow-https-domains"
   description     = "Allow HTTPS to explicitly approved public domains."
-  enable_logging  = true
 
   match {
     dest_fqdns = local.firewall_allowed_domains
@@ -82,7 +79,6 @@ resource "google_compute_network_firewall_policy_rule" "allowed_ip_ranges" {
   action          = "goto_next"
   rule_name       = "allow-https-ip-ranges"
   description     = "Allow HTTPS to explicitly approved public IPv4 ranges."
-  enable_logging  = true
 
   match {
     dest_ip_ranges = sort(tolist(var.firewall_allowed_ip_ranges))
