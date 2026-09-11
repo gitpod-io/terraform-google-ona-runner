@@ -90,19 +90,16 @@ run "default_deny_with_private_google_apis" {
     )
     error_message = "The default policy must allow only internal, PSC, and app.gitpod.io HTTPS before denying all other egress."
   }
-
-
   assert {
     condition = (
       google_logging_project_bucket_config.security_archive.retention_days == 90 &&
       google_logging_project_bucket_config.security_archive.enable_analytics &&
-      !google_logging_project_bucket_config.security_archive.locked &&
-      google_logging_project_bucket_config.security_archive.deletion_policy == "DELETE" &&
+      google_logging_project_bucket_config.security_archive.locked &&
+      google_logging_project_bucket_config.security_archive.deletion_policy == "ABANDON" &&
       strcontains(google_logging_project_sink.security_archive.filter, "dns.googleapis.com/dns_queries") &&
-      strcontains(google_logging_project_sink.security_archive.filter, "compute.googleapis.com/vpc_flows") &&
-      length(google_logging_project_sink.security_export) == 0
+      strcontains(google_logging_project_sink.security_archive.filter, "compute.googleapis.com/vpc_flows")
     )
-    error_message = "Security logs must be routed to a dedicated 90-day analytics bucket by default."
+    error_message = "Security logs must be routed to a locked 90-day analytics bucket that survives Terraform destroy."
   }
 
   assert {
@@ -131,10 +128,9 @@ run "default_deny_with_private_google_apis" {
       google_compute_network_firewall_policy_rule.url_filtering.action == "apply_security_profile_group" &&
       google_compute_network_firewall_policy_rule.url_filtering.enable_logging &&
       !google_compute_network_firewall_policy_rule.url_filtering.tls_inspect &&
-      toset(google_compute_network_firewall_policy_rule.url_filtering.target_service_accounts) == toset(["test-runner-env-vm@runner-project.iam.gserviceaccount.com"]) &&
-      length(google_compute_packet_mirroring.environment) == 0
+      toset(google_compute_network_firewall_policy_rule.url_filtering.target_service_accounts) == toset(["test-runner-env-vm@runner-project.iam.gserviceaccount.com"])
     )
-    error_message = "URL filtering must always inspect environment HTTPS in every configured zone; operator-managed packet collection remains optional."
+    error_message = "URL filtering must always inspect environment HTTPS in every configured zone."
   }
 
   assert {
@@ -144,91 +140,6 @@ run "default_deny_with_private_google_apis" {
     )
     error_message = "The example outputs must expose the effective public allowlist and restricted runner addresses."
   }
-}
-
-run "locked_archive_with_external_export" {
-  command = plan
-
-  variables {
-    lock_security_log_bucket = true
-    security_log_export_destinations = {
-      siem = "pubsub.googleapis.com/projects/security-project/topics/runner-events"
-    }
-  }
-
-  assert {
-    condition = (
-      google_logging_project_bucket_config.security_archive.locked &&
-      google_logging_project_bucket_config.security_archive.deletion_policy == "ABANDON" &&
-      toset(keys(google_logging_project_sink.security_export)) == toset(["siem"]) &&
-      contains(keys(output.security_log_export_writer_identities), "siem")
-    )
-    error_message = "Locked archives must survive destroy and external sinks must expose their writer identities."
-  }
-}
-
-run "deep_inspection_integrations" {
-  command = plan
-
-  variables {
-    firewall_allowed_ip_ranges                 = ["203.0.113.10/32"]
-    url_filtering_tls_inspection_policy        = "https://networksecurity.googleapis.com/v1/projects/runner-project/locations/us-central1/tlsInspectionPolicies/runner-egress"
-    packet_mirroring_collector_forwarding_rule = "https://www.googleapis.com/compute/v1/projects/runner-project/regions/us-central1/forwardingRules/packet-collector"
-  }
-
-  assert {
-    condition = (
-      toset(one(one(google_network_security_security_profile.url_filtering.url_filtering_profile).url_filters).urls) == toset(["app.gitpod.io"]) &&
-      google_network_security_security_profile_group.url_filtering.name == "test-runner-url-filter" &&
-      toset(keys(google_network_security_firewall_endpoint.url_filtering)) == toset(["us-central1-a", "us-central1-b"])
-    )
-    error_message = "URL filtering must deploy the approved domain profile and an endpoint in every configured zone."
-  }
-
-  assert {
-    condition = (
-      google_compute_network_firewall_policy_rule.url_filtering.action == "apply_security_profile_group" &&
-      google_compute_network_firewall_policy_rule.url_filtering.enable_logging &&
-      google_compute_network_firewall_policy_rule.url_filtering.tls_inspect &&
-      toset(google_compute_network_firewall_policy_rule.url_filtering.target_service_accounts) == toset(["test-runner-env-vm@runner-project.iam.gserviceaccount.com"]) &&
-      google_compute_network_firewall_policy_rule.url_filtering_allowed_ip_ranges[0].priority == 225 &&
-      toset(one(google_compute_network_firewall_policy_rule.url_filtering_allowed_ip_ranges[0].match).dest_ip_ranges) == toset(["203.0.113.10/32"]) &&
-      alltrue([
-        for association in google_network_security_firewall_endpoint_association.url_filtering :
-        association.tls_inspection_policy == "https://networksecurity.googleapis.com/v1/projects/runner-project/locations/us-central1/tlsInspectionPolicies/runner-egress"
-      ])
-    )
-    error_message = "Environment HTTPS must use the URL profile and optional TLS policy without affecting the runner identity."
-  }
-
-  assert {
-    condition = (
-      length(google_compute_packet_mirroring.environment) == 1 &&
-      toset(one(google_compute_packet_mirroring.environment[0].mirrored_resources).tags) == toset(["gitpod-type-environment"]) &&
-      one(google_compute_packet_mirroring.environment[0].filter).direction == "BOTH"
-    )
-    error_message = "Packet mirroring must target only environment-tagged VM traffic in both directions."
-  }
-}
-
-run "rejects_tls_policy_in_another_region" {
-  command = plan
-
-  variables {
-    url_filtering_tls_inspection_policy = "https://networksecurity.googleapis.com/v1/projects/runner-project/locations/us-east1/tlsInspectionPolicies/runner-egress"
-  }
-
-  expect_failures = [var.url_filtering_tls_inspection_policy]
-}
-
-run "rejects_packet_collector_in_another_region" {
-  command = plan
-
-  variables {
-    packet_mirroring_collector_forwarding_rule = "https://www.googleapis.com/compute/v1/projects/runner-project/regions/us-east1/forwardingRules/packet-collector"
-  }
-
-  expect_failures = [var.packet_mirroring_collector_forwarding_rule]
 }
 
 run "extended_allowlist" {

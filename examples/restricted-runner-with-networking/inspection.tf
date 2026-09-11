@@ -41,13 +41,12 @@ resource "google_network_security_firewall_endpoint" "url_filtering" {
 resource "google_network_security_firewall_endpoint_association" "url_filtering" {
   for_each = google_network_security_firewall_endpoint.url_filtering
 
-  parent                = "projects/${var.project_id}"
-  location              = each.key
-  name                  = "${local.name_prefix}-egress"
-  firewall_endpoint     = each.value.self_link
-  network               = google_compute_network.runner.self_link
-  tls_inspection_policy = var.url_filtering_tls_inspection_policy
-  labels                = local.common_labels
+  parent            = "projects/${var.project_id}"
+  location          = each.key
+  name              = "${local.name_prefix}-egress"
+  firewall_endpoint = each.value.self_link
+  network           = google_compute_network.runner.self_link
+  labels            = local.common_labels
 }
 
 resource "google_compute_network_firewall_policy_rule" "url_filtering_allowed_ip_ranges" {
@@ -83,7 +82,7 @@ resource "google_compute_network_firewall_policy_rule" "url_filtering" {
   enable_logging          = true
   security_profile_group  = "https://networksecurity.googleapis.com/v1/${google_network_security_security_profile_group.url_filtering.id}"
   target_service_accounts = [module.runner.environment_vm_service_account_email]
-  tls_inspect             = var.url_filtering_tls_inspection_policy != null
+  tls_inspect             = false
 
   match {
     dest_ip_ranges = ["0.0.0.0/0"]
@@ -95,29 +94,4 @@ resource "google_compute_network_firewall_policy_rule" "url_filtering" {
   }
 
   depends_on = [google_network_security_firewall_endpoint_association.url_filtering]
-}
-
-resource "google_compute_packet_mirroring" "environment" {
-  count = var.packet_mirroring_collector_forwarding_rule == null ? 0 : 1
-
-  project     = var.project_id
-  region      = var.region
-  name        = "${local.name_prefix}-environment"
-  description = "Mirror restricted environment VM traffic to the operator-managed collector."
-
-  network {
-    url = google_compute_network.runner.self_link
-  }
-
-  collector_ilb {
-    url = var.packet_mirroring_collector_forwarding_rule
-  }
-
-  mirrored_resources {
-    tags = ["gitpod-type-environment"]
-  }
-
-  filter {
-    direction = "BOTH"
-  }
 }

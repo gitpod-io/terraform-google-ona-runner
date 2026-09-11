@@ -11,23 +11,6 @@ firewall_allowed_domains = [
   "app.gitpod.io",
 ]
 
-# Retain cloud-generated security evidence for 90 days. Lock only after
-# validating retention and data-residency requirements; locking is permanent.
-security_log_retention_days = 90
-# lock_security_log_bucket  = true
-
-# Export to a separate security project or SIEM when evidence must remain
-# available independently of runner-project administrators. Grant each writer
-# from the security_log_export_writer_identities output access to its target.
-# security_log_export_destinations = {
-#   siem = "pubsub.googleapis.com/projects/security-project/topics/runner-events"
-# }
-# security_notification_channels = [
-#   "projects/my-runner-project/notificationChannels/1234567890",
-# ]
-
-# URL filtering and its billable Cloud NGFW Enterprise endpoints are always
-# enabled. Optional TLS inspection requires an existing regional policy, and
-# packet mirroring requires an existing regional INTERNAL collector rule.
-# url_filtering_tls_inspection_policy = "https://networksecurity.googleapis.com/v1/projects/my-runner-project/locations/us-central1/tlsInspectionPolicies/runner-egress"
-# packet_mirroring_collector_forwarding_rule = "https://www.googleapis.com/compute/v1/projects/my-runner-project/regions/us-central1/forwardingRules/packet-collector"
+# Security evidence is kept in a locked 90-day Log Analytics bucket. Change
+# only its location when data-residency requirements prohibit the global default.
+security_log_bucket_location = "global"

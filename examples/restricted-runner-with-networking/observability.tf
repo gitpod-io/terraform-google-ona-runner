@@ -18,10 +18,10 @@ resource "google_logging_project_bucket_config" "security_archive" {
   location         = var.security_log_bucket_location
   bucket_id        = "${local.name_prefix}-security"
   description      = "Cloud-generated network and audit evidence for the restricted Ona runner."
-  retention_days   = var.security_log_retention_days
+  retention_days   = 90
   enable_analytics = true
-  locked           = var.lock_security_log_bucket
-  deletion_policy  = var.lock_security_log_bucket ? "ABANDON" : "DELETE"
+  locked           = true
+  deletion_policy  = "ABANDON"
 }
 
 resource "google_logging_project_sink" "security_archive" {
@@ -39,17 +39,6 @@ resource "google_project_iam_member" "security_archive_writer" {
   member  = google_logging_project_sink.security_archive.writer_identity
 }
 
-resource "google_logging_project_sink" "security_export" {
-  for_each = var.security_log_export_destinations
-
-  project                = var.project_id
-  name                   = trimsuffix(substr("${local.name_prefix}-${each.key}", 0, 100), "-")
-  description            = "Exports restricted-runner network and audit evidence to ${each.key}."
-  destination            = each.value
-  filter                 = local.security_log_filter
-  unique_writer_identity = true
-}
-
 resource "google_logging_metric" "dns_nxdomain" {
   project     = var.project_id
   name        = "${local.name_prefix}-dns-nxdomain"
@@ -62,13 +51,12 @@ resource "google_logging_metric" "dns_nxdomain" {
 }
 
 resource "google_monitoring_alert_policy" "denied_egress" {
-  project               = var.project_id
-  display_name          = "${local.name_prefix}: denied egress"
-  combiner              = "OR"
-  enabled               = true
-  severity              = "WARNING"
-  notification_channels = var.security_notification_channels
-  user_labels           = { ona_component = "runner_networking" }
+  project      = var.project_id
+  display_name = "${local.name_prefix}: denied egress"
+  combiner     = "OR"
+  enabled      = true
+  severity     = "WARNING"
+  user_labels  = { ona_component = "runner_networking" }
 
   conditions {
     display_name = "Cloud NGFW denied an egress connection"
@@ -102,13 +90,12 @@ resource "google_monitoring_alert_policy" "denied_egress" {
 }
 
 resource "google_monitoring_alert_policy" "environment_api_denied" {
-  project               = var.project_id
-  display_name          = "${local.name_prefix}: environment API denied"
-  combiner              = "OR"
-  enabled               = true
-  severity              = "WARNING"
-  notification_channels = var.security_notification_channels
-  user_labels           = { ona_component = "runner_networking" }
+  project      = var.project_id
+  display_name = "${local.name_prefix}: environment API denied"
+  combiner     = "OR"
+  enabled      = true
+  severity     = "WARNING"
+  user_labels  = { ona_component = "runner_networking" }
 
   conditions {
     display_name = "The environment VM service account was denied by a Google API"
@@ -140,13 +127,12 @@ resource "google_monitoring_alert_policy" "environment_api_denied" {
 }
 
 resource "google_monitoring_alert_policy" "security_control_change" {
-  project               = var.project_id
-  display_name          = "${local.name_prefix}: security control changed"
-  combiner              = "OR"
-  enabled               = true
-  severity              = "ERROR"
-  notification_channels = var.security_notification_channels
-  user_labels           = { ona_component = "runner_networking" }
+  project      = var.project_id
+  display_name = "${local.name_prefix}: security control changed"
+  combiner     = "OR"
+  enabled      = true
+  severity     = "ERROR"
+  user_labels  = { ona_component = "runner_networking" }
 
   conditions {
     display_name = "A restricted-runner security control was modified"
@@ -182,18 +168,17 @@ resource "google_monitoring_alert_policy" "security_control_change" {
 
   documentation {
     mime_type = "text/markdown"
-    content   = "Confirm that the change was expected. In particular, verify the firewall policy, DNS policy, log sinks, archive, packet mirroring, and IAM audit configuration."
+    content   = "Confirm that the change was expected. In particular, verify the firewall policy, DNS policy, log sink, archive, and IAM audit configuration."
   }
 }
 
 resource "google_monitoring_alert_policy" "dns_nxdomain" {
-  project               = var.project_id
-  display_name          = "${local.name_prefix}: DNS NXDOMAIN anomaly"
-  combiner              = "OR"
-  enabled               = true
-  severity              = "WARNING"
-  notification_channels = var.security_notification_channels
-  user_labels           = { ona_component = "runner_networking" }
+  project      = var.project_id
+  display_name = "${local.name_prefix}: DNS NXDOMAIN anomaly"
+  combiner     = "OR"
+  enabled      = true
+  severity     = "WARNING"
+  user_labels  = { ona_component = "runner_networking" }
 
   conditions {
     display_name = "NXDOMAIN responses exceeded the five-minute threshold"
@@ -201,7 +186,7 @@ resource "google_monitoring_alert_policy" "dns_nxdomain" {
     condition_threshold {
       filter          = "metric.type=\"logging.googleapis.com/user/${google_logging_metric.dns_nxdomain.name}\" AND resource.type=\"dns_query\""
       comparison      = "COMPARISON_GT"
-      threshold_value = var.dns_nxdomain_alert_threshold
+      threshold_value = 100
       duration        = "0s"
 
       aggregations {
@@ -219,13 +204,12 @@ resource "google_monitoring_alert_policy" "dns_nxdomain" {
 }
 
 resource "google_monitoring_alert_policy" "inspection_fallback" {
-  project               = var.project_id
-  display_name          = "${local.name_prefix}: inspection fallback allowed traffic"
-  combiner              = "OR"
-  enabled               = true
-  severity              = "CRITICAL"
-  notification_channels = var.security_notification_channels
-  user_labels           = { ona_component = "runner_networking" }
+  project      = var.project_id
+  display_name = "${local.name_prefix}: inspection fallback allowed traffic"
+  combiner     = "OR"
+  enabled      = true
+  severity     = "CRITICAL"
+  user_labels  = { ona_component = "runner_networking" }
 
   conditions {
     display_name = "Cloud NGFW used the ALLOW fallback action"
