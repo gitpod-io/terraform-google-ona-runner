@@ -10,3 +10,24 @@ runner_name  = "ona-runner"
 firewall_allowed_domains = [
   "app.gitpod.io",
 ]
+
+# Retain cloud-generated security evidence for 90 days. Lock only after
+# validating retention and data-residency requirements; locking is permanent.
+security_log_retention_days = 90
+# lock_security_log_bucket  = true
+
+# Export to a separate security project or SIEM when evidence must remain
+# available independently of runner-project administrators. Grant each writer
+# from the security_log_export_writer_identities output access to its target.
+# security_log_export_destinations = {
+#   siem = "pubsub.googleapis.com/projects/security-project/topics/runner-events"
+# }
+# security_notification_channels = [
+#   "projects/my-runner-project/notificationChannels/1234567890",
+# ]
+
+# Optional higher-assurance inspection. URL filtering creates billable Cloud
+# NGFW Enterprise endpoints in every zone. Packet mirroring requires an
+# existing regional INTERNAL collector forwarding rule.
+# enable_url_filtering = true
+# packet_mirroring_collector_forwarding_rule = "https://www.googleapis.com/compute/v1/projects/my-runner-project/regions/us-central1/forwardingRules/packet-collector"

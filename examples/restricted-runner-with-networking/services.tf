@@ -1,5 +1,5 @@
 locals {
-  required_services = toset([
+  base_required_services = toset([
     "artifactregistry.googleapis.com",
     "cloudresourcemanager.googleapis.com",
     "compute.googleapis.com",
@@ -15,6 +15,11 @@ locals {
     "servicedirectory.googleapis.com",
     "storage.googleapis.com",
   ])
+
+  required_services = setunion(
+    local.base_required_services,
+    var.enable_url_filtering ? toset(["networksecurity.googleapis.com"]) : toset([]),
+  )
 }
 
 resource "google_project_service" "required" {
