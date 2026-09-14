@@ -240,7 +240,7 @@ run "limits_psc_endpoint_name" {
   }
 
   assert {
-    condition     = length(google_compute_global_forwarding_rule.google_apis.name) <= 20
-    error_message = "The PSC forwarding rule name must not exceed Google's 20-character endpoint limit."
+    condition     = can(regex("^[a-z][a-z0-9]{0,19}$", google_compute_global_forwarding_rule.google_apis.name))
+    error_message = "The PSC forwarding rule name must contain only lowercase letters and numbers, start with a letter, and not exceed Google's 20-character endpoint limit."
   }
 }

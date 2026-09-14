@@ -91,11 +91,12 @@ class RestrictedRunnerConfigurationTest(unittest.TestCase):
                 self.assertNotRegex(variables_source, declaration)
                 self.assertNotRegex(example_variables_source, declaration)
 
-    def test_networking_uses_stable_resource_ids_and_enables_private_ca(self) -> None:
+    def test_networking_uses_valid_google_resource_configuration(self) -> None:
         example_root = (
             REPOSITORY_ROOT / "examples/restricted-runner-with-networking"
         )
         services_source = (example_root / "services.tf").read_text()
+        locals_source = (example_root / "locals.tf").read_text()
         inspection_source = (example_root / "inspection.tf").read_text()
         observability_source = (example_root / "observability.tf").read_text()
         main_source = (example_root / "main.tf").read_text()
@@ -112,6 +113,9 @@ class RestrictedRunnerConfigurationTest(unittest.TestCase):
             inspection_source,
         )
         self.assertNotIn("firewall_endpoint = each.value.self_link", inspection_source)
+        self.assertIn('replace(local.name_prefix, "/[^a-z0-9]/", "")', locals_source)
+        self.assertIn('create = "90m"', inspection_source)
+        self.assertNotIn('period = "60s"', observability_source)
         self.assertNotIn(
             'resource "google_project_iam_member" "security_archive_writer"',
             observability_source,

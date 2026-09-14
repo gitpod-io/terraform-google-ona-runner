@@ -35,6 +35,10 @@ resource "google_network_security_firewall_endpoint" "url_filtering" {
   billing_project_id = var.project_id
   labels             = local.common_labels
 
+  timeouts {
+    create = "90m"
+  }
+
   depends_on = [google_project_service.required]
 }
 

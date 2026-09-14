@@ -224,7 +224,7 @@ resource "google_monitoring_alert_policy" "inspection_fallback" {
     auto_close = "1800s"
 
     notification_rate_limit {
-      period = "60s"
+      period = "300s"
     }
   }
 

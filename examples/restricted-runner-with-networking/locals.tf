@@ -1,6 +1,11 @@
 locals {
   name_prefix       = trimsuffix(substr(lower(var.runner_name), 0, 24), "-")
-  psc_endpoint_name = trimsuffix(substr("${local.name_prefix}-apis", 0, 20), "-")
+  psc_endpoint_stem = replace(local.name_prefix, "/[^a-z0-9]/", "")
+  psc_endpoint_name = substr(
+    can(regex("^[a-z]", local.psc_endpoint_stem)) ? "${local.psc_endpoint_stem}apis" : "o${local.psc_endpoint_stem}apis",
+    0,
+    20,
+  )
 
   firewall_allowed_domains = sort(tolist(toset([
     for domain in var.firewall_allowed_domains : lower(domain)
