@@ -43,11 +43,28 @@ terraform plan
 terraform apply
 ```
 
+The example forwards the restricted runner's optional operational and security
+configuration, including custom CAs, HTTP/HTTPS proxies, pre-created runner and
+environment service accounts, CMEK, custom images, agent enablement, cross-zone
+restart, project metadata ownership, service ports, and certificate rotation
+triggers. See `terraform.tfvars.example` for representative configuration.
+
+Runner and Redis sizing, proxy VM and load-balancer settings, and public
+certificate settings remain owned by the restricted topology and are not
+configurable through this example.
+
 Development environments cannot reach SCMs, editor downloads, package registries, or arbitrary websites until their exact hostnames are added to `firewall_allowed_domains`. Cloud NGFW FQDN objects do not accept wildcard names. `firewall_allowed_ip_ranges` can add HTTPS CIDR exceptions when an endpoint does not have stable DNS.
+
+When using `proxy_config`, each non-empty proxy URL must contain an explicit
+hostname or IPv4 address and port. The example derives narrowly scoped Cloud
+NGFW rules for those endpoints before environment URL inspection. Include any
+required proxy CA through `ca_certificate`. Cloud NGFW sees the proxy as the
+network destination and cannot restrict destinations tunneled through it, so
+the configured proxy must enforce the deployment's outbound-access policy.
 
 Cloud NGFW FQDN rules alone resolve names to destination IP addresses. The example also uses Cloud NGFW URL filtering to distinguish an approved hostname from other services sharing the same destination IP.
 
-The example always creates project-scoped Cloud NGFW Enterprise URL-filtering profiles and a billable firewall endpoint in every configured zone. Among hostname-based connections, only `firewall_allowed_domains` are allowed by the profile's SNI or HTTP host inspection; its implicit fallback denies other domains. Explicit `firewall_allowed_ip_ranges` bypass Layer 7 inspection. The rule targets the environment VM service account, leaving runner control-plane traffic on the FQDN path.
+The example always creates project-scoped Cloud NGFW Enterprise URL-filtering profiles and a billable firewall endpoint in every configured zone. Among direct hostname-based connections, only `firewall_allowed_domains` are allowed by the profile's SNI or HTTP host inspection; its implicit fallback denies other domains. Explicit `firewall_allowed_ip_ranges` and configured proxy endpoints bypass Layer 7 inspection. The rule targets the environment VM service account, leaving runner control-plane traffic on the FQDN path.
 
 URL filtering relies on plaintext SNI or HTTP host information and does not decrypt TLS payloads. TLS decryption and packet capture are not created because both require customer-owned certificate or collector infrastructure that this module cannot choose safely.
 

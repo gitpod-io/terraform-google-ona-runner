@@ -33,6 +33,12 @@ jobs:
     - name: Test private runner configuration
       run: terraform test -filter=tests/internal-runner.tftest.hcl
 
+    - name: Test restricted runner configuration passthrough
+      run: |
+        terraform -chdir=modules/restricted-runner init -backend=false
+        terraform -chdir=modules/restricted-runner test
+        python3 tests/test_restricted_runner_configuration.py
+
     - name: Test internal TLS lifecycle without cloud credentials
       run: |
         python3 tests/test_internal_runner_tls.py

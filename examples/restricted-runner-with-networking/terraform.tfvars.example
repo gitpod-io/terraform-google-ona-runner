@@ -5,6 +5,40 @@ runner_id    = "00000000-0000-4000-8000-000000000000"
 runner_token = "replace-with-runner-token"
 runner_name  = "ona-runner"
 
+# Optional runner configuration. These values use the root module defaults when
+# omitted.
+# development_version = ""
+# ssh_port            = 29222
+# enable_agents       = true
+# enable_cross_zone_restart = false
+# use_authoritative_project_metadata = true
+# internal_runner_endpoint_version   = 1
+
+# Configure all proxy fields together. Each non-empty URL must include an
+# explicit port; the example creates a matching narrow Cloud NGFW allow rule.
+# proxy_config = {
+#   http_proxy  = "http://proxy.example.com:3128"
+#   https_proxy = "http://proxy.example.com:3128"
+#   no_proxy    = ".example.internal"
+#   all_proxy   = ""
+# }
+
+# Trust a customer CA from a local file or inline PEM content.
+# ca_certificate = {
+#   file_path = "./customer-ca.pem"
+# }
+
+# Use service accounts created and managed outside this module. Set
+# attach_iam_policies to true only when Terraform should attach required IAM.
+# pre_created_service_accounts = {
+#   runner              = "ona-runner@my-runner-project.iam.gserviceaccount.com"
+#   environment_vm      = "ona-environment@my-runner-project.iam.gserviceaccount.com"
+#   attach_iam_policies = false
+# }
+
+# Use an existing CMEK, or set create_cmek = true to create one.
+# kms_key_name = "projects/my-runner-project/locations/us-central1/keyRings/ona/cryptoKeys/runner"
+
 # The default policy allows public HTTPS only to app.gitpod.io. Add exact
 # hostnames required for your SCM, editors, package registries, or custom domain.
 firewall_allowed_domains = [

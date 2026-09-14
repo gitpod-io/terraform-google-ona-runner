@@ -83,6 +83,8 @@ run "default_deny_with_private_google_apis" {
       google_compute_network_firewall_policy_rule.allowed_domains.action == "goto_next" &&
       toset(one(google_compute_network_firewall_policy_rule.allowed_domains.match).dest_fqdns) == toset(["app.gitpod.io"]) &&
       toset(one(one(google_compute_network_firewall_policy_rule.allowed_domains.match).layer4_configs).ports) == toset(["443"]) &&
+      length(google_compute_network_firewall_policy_rule.proxy_domains) == 0 &&
+      length(google_compute_network_firewall_policy_rule.proxy_ip_ranges) == 0 &&
       length(google_compute_network_firewall_policy_rule.allowed_ip_ranges) == 0 &&
       google_compute_network_firewall_policy_rule.deny_all.action == "deny" &&
       google_compute_network_firewall_policy_rule.deny_all.enable_logging &&
@@ -161,6 +163,47 @@ run "extended_allowlist" {
   }
 }
 
+run "allows_configured_proxy_endpoints" {
+  command = plan
+
+  variables {
+    proxy_config = {
+      http_proxy  = "http://proxy.example.com:3128"
+      https_proxy = "http://PROXY.EXAMPLE.COM:3128"
+      no_proxy    = ".example.internal"
+      all_proxy   = "socks5://198.51.100.20:1080"
+    }
+  }
+
+  assert {
+    condition = (
+      toset(keys(google_compute_network_firewall_policy_rule.proxy_domains)) == toset(["proxy.example.com:3128"]) &&
+      toset(one(google_compute_network_firewall_policy_rule.proxy_domains["proxy.example.com:3128"].match).dest_fqdns) == toset(["proxy.example.com"]) &&
+      toset(one(one(google_compute_network_firewall_policy_rule.proxy_domains["proxy.example.com:3128"].match).layer4_configs).ports) == toset(["3128"]) &&
+      google_compute_network_firewall_policy_rule.proxy_domains["proxy.example.com:3128"].priority < google_compute_network_firewall_policy_rule.url_filtering.priority
+    )
+    error_message = "A hostname proxy must receive an exact host-and-port egress rule before environment URL inspection."
+  }
+
+  assert {
+    condition = (
+      toset(keys(google_compute_network_firewall_policy_rule.proxy_ip_ranges)) == toset(["198.51.100.20:1080"]) &&
+      toset(one(google_compute_network_firewall_policy_rule.proxy_ip_ranges["198.51.100.20:1080"].match).dest_ip_ranges) == toset(["198.51.100.20/32"]) &&
+      toset(one(one(google_compute_network_firewall_policy_rule.proxy_ip_ranges["198.51.100.20:1080"].match).layer4_configs).ports) == toset(["1080"]) &&
+      google_compute_network_firewall_policy_rule.proxy_ip_ranges["198.51.100.20:1080"].priority < google_compute_network_firewall_policy_rule.url_filtering.priority
+    )
+    error_message = "An IPv4 proxy must receive an exact address-and-port egress rule before environment URL inspection."
+  }
+
+  assert {
+    condition = (
+      toset(one(one(google_compute_network_firewall_policy_rule.allowed_domains.match).layer4_configs).ports) == toset(["443"]) &&
+      toset(one(one(google_compute_network_firewall_policy_rule.url_filtering.match).layer4_configs).ports) == toset(["443"])
+    )
+    error_message = "Proxy support must not broaden the general HTTPS allowlist or inspection ports."
+  }
+}
+
 run "normalizes_domains" {
   command = plan
 
@@ -172,6 +215,21 @@ run "normalizes_domains" {
     condition     = toset(one(google_compute_network_firewall_policy_rule.allowed_domains.match).dest_fqdns) == toset(["app.gitpod.io"])
     error_message = "FQDN allowlist entries must be lowercase and deduplicated."
   }
+}
+
+run "rejects_proxy_without_explicit_port" {
+  command = plan
+
+  variables {
+    proxy_config = {
+      http_proxy  = "http://proxy.example.com"
+      https_proxy = ""
+      no_proxy    = ""
+      all_proxy   = ""
+    }
+  }
+
+  expect_failures = [var.proxy_config]
 }
 
 run "limits_psc_endpoint_name" {

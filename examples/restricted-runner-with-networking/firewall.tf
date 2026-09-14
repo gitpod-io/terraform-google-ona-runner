@@ -50,6 +50,48 @@ resource "google_compute_network_firewall_policy_rule" "google_apis_psc" {
   }
 }
 
+resource "google_compute_network_firewall_policy_rule" "proxy_domains" {
+  for_each = local.proxy_domain_endpoints
+
+  project         = var.project_id
+  firewall_policy = google_compute_network_firewall_policy.egress.name
+  priority        = 201 + index(local.proxy_endpoint_keys, each.key)
+  direction       = "EGRESS"
+  action          = "goto_next"
+  rule_name       = "allow-proxy-${201 + index(local.proxy_endpoint_keys, each.key)}"
+  description     = "Allow the explicitly configured outbound proxy endpoint."
+
+  match {
+    dest_fqdns = [each.value.host]
+
+    layer4_configs {
+      ip_protocol = "tcp"
+      ports       = [each.value.port]
+    }
+  }
+}
+
+resource "google_compute_network_firewall_policy_rule" "proxy_ip_ranges" {
+  for_each = local.proxy_ip_endpoints
+
+  project         = var.project_id
+  firewall_policy = google_compute_network_firewall_policy.egress.name
+  priority        = 201 + index(local.proxy_endpoint_keys, each.key)
+  direction       = "EGRESS"
+  action          = "goto_next"
+  rule_name       = "allow-proxy-${201 + index(local.proxy_endpoint_keys, each.key)}"
+  description     = "Allow the explicitly configured outbound proxy endpoint."
+
+  match {
+    dest_ip_ranges = ["${each.value.host}/32"]
+
+    layer4_configs {
+      ip_protocol = "tcp"
+      ports       = [each.value.port]
+    }
+  }
+}
+
 resource "google_compute_network_firewall_policy_rule" "allowed_domains" {
   project         = var.project_id
   firewall_policy = google_compute_network_firewall_policy.egress.name
