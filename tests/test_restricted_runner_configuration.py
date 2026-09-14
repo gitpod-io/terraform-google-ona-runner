@@ -91,6 +91,26 @@ class RestrictedRunnerConfigurationTest(unittest.TestCase):
                 self.assertNotRegex(variables_source, declaration)
                 self.assertNotRegex(example_variables_source, declaration)
 
+    def test_networking_uses_stable_resource_ids_and_enables_private_ca(self) -> None:
+        example_root = (
+            REPOSITORY_ROOT / "examples/restricted-runner-with-networking"
+        )
+        services_source = (example_root / "services.tf").read_text()
+        inspection_source = (example_root / "inspection.tf").read_text()
+
+        self.assertIn('"privateca.googleapis.com"', services_source)
+        self.assertIn(
+            "url_filtering_profile = "
+            "google_network_security_security_profile.url_filtering.id",
+            inspection_source,
+        )
+        self.assertIn("firewall_endpoint = each.value.id", inspection_source)
+        self.assertNotIn(
+            "google_network_security_security_profile.url_filtering.self_link",
+            inspection_source,
+        )
+        self.assertNotIn("firewall_endpoint = each.value.self_link", inspection_source)
+
 
 if __name__ == "__main__":
     unittest.main()
