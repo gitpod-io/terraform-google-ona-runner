@@ -97,6 +97,8 @@ class RestrictedRunnerConfigurationTest(unittest.TestCase):
         )
         services_source = (example_root / "services.tf").read_text()
         inspection_source = (example_root / "inspection.tf").read_text()
+        observability_source = (example_root / "observability.tf").read_text()
+        main_source = (example_root / "main.tf").read_text()
 
         self.assertIn('"privateca.googleapis.com"', services_source)
         self.assertIn(
@@ -110,6 +112,11 @@ class RestrictedRunnerConfigurationTest(unittest.TestCase):
             inspection_source,
         )
         self.assertNotIn("firewall_endpoint = each.value.self_link", inspection_source)
+        self.assertNotIn(
+            'resource "google_project_iam_member" "security_archive_writer"',
+            observability_source,
+        )
+        self.assertNotIn("google_project_iam_member.security_archive_writer", main_source)
 
 
 if __name__ == "__main__":
