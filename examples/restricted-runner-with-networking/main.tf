@@ -28,6 +28,7 @@ module "runner" {
   internal_runner_endpoint_version   = var.internal_runner_endpoint_version
 
   depends_on = [
+    google_compute_subnetwork.runner,
     google_compute_network_firewall_policy_association.egress,
     google_compute_global_forwarding_rule.google_apis,
     google_dns_record_set.google_apis,

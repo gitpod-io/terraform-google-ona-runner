@@ -121,6 +121,10 @@ class RestrictedRunnerConfigurationTest(unittest.TestCase):
             observability_source,
         )
         self.assertNotIn("google_project_iam_member.security_archive_writer", main_source)
+        self.assertRegex(
+            main_source,
+            r"(?s)depends_on\s*=\s*\[.*google_compute_subnetwork\.runner,.*\]",
+        )
 
 
 if __name__ == "__main__":
