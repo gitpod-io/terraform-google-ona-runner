@@ -49,7 +49,7 @@ resource "google_network_security_firewall_endpoint_association" "url_filtering"
   location          = each.key
   name              = "${local.name_prefix}-egress"
   firewall_endpoint = each.value.id
-  network           = google_compute_network.runner.self_link
+  network           = google_compute_network.runner.id
   labels            = local.common_labels
 }
 

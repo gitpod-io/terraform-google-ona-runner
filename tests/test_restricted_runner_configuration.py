@@ -108,11 +108,16 @@ class RestrictedRunnerConfigurationTest(unittest.TestCase):
             inspection_source,
         )
         self.assertIn("firewall_endpoint = each.value.id", inspection_source)
+        self.assertIn(
+            "network           = google_compute_network.runner.id",
+            inspection_source,
+        )
         self.assertNotIn(
             "google_network_security_security_profile.url_filtering.self_link",
             inspection_source,
         )
         self.assertNotIn("firewall_endpoint = each.value.self_link", inspection_source)
+        self.assertNotIn("google_compute_network.runner.self_link", inspection_source)
         self.assertIn('replace(local.name_prefix, "/[^a-z0-9]/", "")', locals_source)
         self.assertIn('create = "90m"', inspection_source)
         self.assertNotIn('period = "60s"', observability_source)
