@@ -305,7 +305,7 @@ resource "google_compute_region_instance_group_manager" "runner" {
     most_disruptive_allowed_action = "REPLACE"
 
     max_surge_fixed = var.restrict_ingress ? 0 : max(length(var.zones), 2)
-    max_unavailable_fixed = var.restrict_ingress ? 1 : (
+    max_unavailable_fixed = var.restrict_ingress ? max(length(var.zones), 2) : (
       var.runner_vm_config.update_policy_config.max_unavailable == 0 ? 0 :
       max(length(var.zones), var.runner_vm_config.update_policy_config.max_unavailable)
     )

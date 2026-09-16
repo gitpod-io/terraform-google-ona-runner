@@ -181,7 +181,7 @@ run "private_runner_addresses" {
       one(google_compute_region_instance_group_manager.runner["internal"].update_policy).instance_redistribution_type == "NONE" &&
       one(google_compute_region_instance_group_manager.runner["internal"].update_policy).minimal_action == "REPLACE" &&
       one(google_compute_region_instance_group_manager.runner["internal"].update_policy).max_surge_fixed == 0 &&
-      one(google_compute_region_instance_group_manager.runner["internal"].update_policy).max_unavailable_fixed == 1 &&
+      one(google_compute_region_instance_group_manager.runner["internal"].update_policy).max_unavailable_fixed == 2 &&
       one(google_compute_region_instance_group_manager.runner["internal"].update_policy).replacement_method == "RECREATE" &&
       google_compute_region_instance_group_manager.runner["internal"].target_size == 2 &&
       output.runner_instance_group_name == "test-runner-internal-group" &&
