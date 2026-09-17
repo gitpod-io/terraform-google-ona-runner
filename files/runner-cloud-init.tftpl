@@ -647,7 +647,9 @@ write_files:
       ENVIRONMENT_VM_SERVICE_ACCOUNT_EMAIL=${ENVIRONMENT_VM_SERVICE_ACCOUNT_EMAIL}
       ARTIFACT_REGISTRY_HOST=${ARTIFACT_REGISTRY_HOST}
       API_ENDPOINT=${API_ENDPOINT}
+%{ if PROXY_DOMAIN != "" ~}
       RUNNER_PROXY_DOMAIN=${PROXY_DOMAIN}
+%{ endif ~}
       SSH_PORT=${SSH_PORT}
       INSTANCE_GROUP_NAME=${INSTANCE_GROUP_NAME}
       BUILD_CACHE_BUCKET=${BUILD_CACHE_BUCKET}
@@ -798,7 +800,9 @@ write_files:
         --environment-vm-service-account-email=${ENVIRONMENT_VM_SERVICE_ACCOUNT_EMAIL} \
         --artifact-registry-host=${ARTIFACT_REGISTRY_HOST} \
         --api-endpoint=${API_ENDPOINT} \
+%{ if PROXY_DOMAIN != "" ~}
         --runner-proxy-domain=${PROXY_DOMAIN} \
+%{ endif ~}
         --ssh-port=${SSH_PORT} \
         --instance-group-name=${INSTANCE_GROUP_NAME} \
         --pubsub-subscription-id=${PUBSUB_SUBSCRIPTION_ID} \

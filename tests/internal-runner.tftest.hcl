@@ -123,6 +123,7 @@ run "disabled_by_default" {
       length(null_resource.health_validation_external) == 1 &&
       length(null_resource.health_validation_restricted) == 0 &&
       contains(one([for rule in google_compute_firewall.deny_environments_to_services.deny : rule if rule.protocol == "tcp"]).ports, "4430") &&
+      local.runner_proxy_domain == "runner.example.com" &&
       local.proxy_vm_sa_email == "proxy-vm@runner-project.iam.gserviceaccount.com"
     )
     error_message = "Default deployments must retain the proxy and external load balancer path."
@@ -222,12 +223,12 @@ run "private_runner_addresses" {
 
   assert {
     condition = (
-      local.runner_proxy_domain == "runner.ona-00000000-0000-4000-8000-000000000001.internal" &&
+      local.runner_proxy_domain == "" &&
       local.auth_proxy_url == "" &&
       local.internal_runner_endpoint_configuration.endpoint == "https://runner.ona-00000000-0000-4000-8000-000000000001.internal:8089" &&
       !contains(tls_self_signed_cert.auth_proxy.dns_names, local.runner_proxy_domain)
     )
-    error_message = "Restricted environments must use the internal runner configuration on port 8089 without an auth-proxy initial-spec URL."
+    error_message = "Restricted environments must use the internal runner configuration on port 8089 without proxy-domain or auth-proxy configuration."
   }
 
   assert {
@@ -354,8 +355,30 @@ run "runner_domain_optional_when_restricted" {
   }
 
   assert {
-    condition     = local.runner_proxy_domain == output.internal_runner_hostname
-    error_message = "Restricted deployments must not require a public runner domain."
+    condition     = local.runner_proxy_domain == "" && output.internal_runner_hostname != null
+    error_message = "Restricted deployments must configure only the internal endpoint and must not set a runner proxy domain."
+  }
+}
+
+run "restricted_proxy_bypasses_internal_endpoint" {
+  command = plan
+
+  variables {
+    restrict_ingress = true
+    proxy_config = {
+      http_proxy  = "http://proxy.example.com:3128"
+      https_proxy = "http://proxy.example.com:3128"
+      no_proxy    = ".example.internal"
+      all_proxy   = ""
+    }
+  }
+
+  assert {
+    condition = (
+      local.runner_proxy_domain == "" &&
+      strcontains(local.no_proxy, output.internal_runner_hostname)
+    )
+    error_message = "Restricted proxy configuration must bypass the internal runner hostname without setting a runner proxy domain."
   }
 }
 

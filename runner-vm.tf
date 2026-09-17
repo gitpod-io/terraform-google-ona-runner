@@ -2,8 +2,9 @@
 # Deploy runner service in a container on Compute Engine VM instances
 
 locals {
-  runner_proxy_domain = var.restrict_ingress ? local.internal_runner_hostname : coalesce(var.runner_domain, "")
-  auth_proxy_url      = var.restrict_ingress ? "" : "https://4430s--${var.runner_id}.${local.runner_proxy_domain}/initial-spec"
+  runner_proxy_domain  = var.restrict_ingress ? "" : coalesce(var.runner_domain, "")
+  runner_no_proxy_host = var.restrict_ingress ? local.internal_runner_hostname : local.runner_proxy_domain
+  auth_proxy_url       = var.restrict_ingress ? "" : "https://4430s--${var.runner_id}.${local.runner_proxy_domain}/initial-spec"
 
   proxy_enabled = var.proxy_config != null
   ca_enabled    = var.ca_certificate != null
@@ -12,7 +13,7 @@ locals {
   https_proxy = local.proxy_enabled ? var.proxy_config.https_proxy : ""
   all_proxy   = local.proxy_enabled ? var.proxy_config.all_proxy : ""
   # we add some default values to the no_proxy variable along with the customer provided values
-  no_proxy = local.proxy_enabled ? "${var.proxy_config.no_proxy},localhost,127.0.0.1,googleapis.com,metadata.google.internal,${local.runner_proxy_domain}" : ""
+  no_proxy = local.proxy_enabled ? "${var.proxy_config.no_proxy},localhost,127.0.0.1,googleapis.com,metadata.google.internal,${local.runner_no_proxy_host}" : ""
 
   # Trust bundle certificate GCS bucket and object info
   ca_bucket_name = local.has_certificates ? google_storage_bucket.runner_assets.name : ""

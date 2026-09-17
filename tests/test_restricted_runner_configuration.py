@@ -91,6 +91,29 @@ class RestrictedRunnerConfigurationTest(unittest.TestCase):
                 self.assertNotRegex(variables_source, declaration)
                 self.assertNotRegex(example_variables_source, declaration)
 
+    def test_restricted_runner_omits_proxy_domain_configuration(self) -> None:
+        runner_source = (REPOSITORY_ROOT / "runner-vm.tf").read_text()
+        cloud_init_source = (
+            REPOSITORY_ROOT / "files/runner-cloud-init.tftpl"
+        ).read_text()
+
+        self.assertRegex(
+            runner_source,
+            r'runner_proxy_domain\s*=\s*var\.restrict_ingress\s*\?\s*""\s*:',
+        )
+        self.assertRegex(
+            runner_source,
+            r"runner_no_proxy_host\s*=\s*var\.restrict_ingress\s*\?\s*local\.internal_runner_hostname\s*:\s*local\.runner_proxy_domain",
+        )
+        self.assertRegex(
+            cloud_init_source,
+            r'%\{ if PROXY_DOMAIN != "" ~\}\s*RUNNER_PROXY_DOMAIN=\$\{PROXY_DOMAIN\}\s*%\{ endif ~\}',
+        )
+        self.assertRegex(
+            cloud_init_source,
+            r'%\{ if PROXY_DOMAIN != "" ~\}\s*--runner-proxy-domain=\$\{PROXY_DOMAIN\} \\\s*%\{ endif ~\}',
+        )
+
     def test_networking_uses_valid_google_resource_configuration(self) -> None:
         example_root = (
             REPOSITORY_ROOT / "examples/restricted-runner-with-networking"
