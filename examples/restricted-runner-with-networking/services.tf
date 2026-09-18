@@ -10,6 +10,7 @@ locals {
     "monitoring.googleapis.com",
     "networkconnectivity.googleapis.com",
     "networksecurity.googleapis.com",
+    "privateca.googleapis.com",
     "pubsub.googleapis.com",
     "redis.googleapis.com",
     "secretmanager.googleapis.com",

@@ -33,12 +33,6 @@ resource "google_logging_project_sink" "security_archive" {
   unique_writer_identity = true
 }
 
-resource "google_project_iam_member" "security_archive_writer" {
-  project = var.project_id
-  role    = "roles/logging.bucketWriter"
-  member  = google_logging_project_sink.security_archive.writer_identity
-}
-
 resource "google_logging_metric" "dns_nxdomain" {
   project     = var.project_id
   name        = "${local.name_prefix}-dns-nxdomain"
@@ -230,7 +224,7 @@ resource "google_monitoring_alert_policy" "inspection_fallback" {
     auto_close = "1800s"
 
     notification_rate_limit {
-      period = "60s"
+      period = "300s"
     }
   }
 

@@ -22,7 +22,7 @@ resource "google_network_security_security_profile_group" "url_filtering" {
   location              = "global"
   name                  = "${local.name_prefix}-url-filter"
   description           = "URL filtering profile group for restricted environment egress."
-  url_filtering_profile = google_network_security_security_profile.url_filtering.self_link
+  url_filtering_profile = google_network_security_security_profile.url_filtering.id
   labels                = local.common_labels
 }
 
@@ -35,6 +35,10 @@ resource "google_network_security_firewall_endpoint" "url_filtering" {
   billing_project_id = var.project_id
   labels             = local.common_labels
 
+  timeouts {
+    create = "90m"
+  }
+
   depends_on = [google_project_service.required]
 }
 
@@ -44,8 +48,8 @@ resource "google_network_security_firewall_endpoint_association" "url_filtering"
   parent            = "projects/${var.project_id}"
   location          = each.key
   name              = "${local.name_prefix}-egress"
-  firewall_endpoint = each.value.self_link
-  network           = google_compute_network.runner.self_link
+  firewall_endpoint = each.value.id
+  network           = google_compute_network.runner.id
   labels            = local.common_labels
 }
 

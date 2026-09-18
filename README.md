@@ -72,6 +72,13 @@ example to create a dedicated VPC with default-deny egress, Google APIs over
 Private Service Connect, and public HTTPS access to `app.gitpod.io` only by
 default.
 
+The restricted wrapper retains the root module's operational and security
+configuration for custom CAs, outbound proxies, pre-created runner and
+environment service accounts, CMEK, custom images, agent settings, project
+metadata ownership, and certificate rotation. It intentionally fixes the
+runner topology and does not expose proxy VM, load-balancer, public certificate,
+runner sizing, or Redis sizing settings.
+
 The Cloud DNS API must be enabled in the runner project. For Shared VPC, the
 reservations use the host project's runner subnet and the private zone is bound
 to the host network. See the
