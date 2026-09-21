@@ -39,11 +39,10 @@ runner_name  = "ona-runner"
 # Use an existing CMEK, or set create_cmek = true to create one.
 # kms_key_name = "projects/my-runner-project/locations/us-central1/keyRings/ona/cryptoKeys/runner"
 
-# The default policy allows public HTTPS only to app.gitpod.io. Add exact
-# hostnames required for your SCM, editors, package registries, or custom domain.
-firewall_allowed_domains = [
-  "app.gitpod.io",
-]
+# The default policy uses the firewall.yaml baseline. To replace it, list every
+# exact hostname required for the management plane, SCM, editors, registries,
+# or custom domain.
+# firewall_allowed_domains = ["app.gitpod.io", "github.com"]
 
 # Security evidence is kept in a locked 90-day Log Analytics bucket. Change
 # only its location when data-residency requirements prohibit the global default.

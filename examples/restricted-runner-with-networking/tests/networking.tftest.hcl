@@ -81,7 +81,16 @@ run "default_deny_with_private_google_apis" {
       google_compute_network_firewall_policy_rule.internal.action == "goto_next" &&
       google_compute_network_firewall_policy_rule.google_apis_psc.action == "goto_next" &&
       google_compute_network_firewall_policy_rule.allowed_domains.action == "goto_next" &&
-      toset(one(google_compute_network_firewall_policy_rule.allowed_domains.match).dest_fqdns) == toset(["app.gitpod.io"]) &&
+      toset(one(google_compute_network_firewall_policy_rule.allowed_domains.match).dest_fqdns) == toset([
+        "api.atlassian.com",
+        "api.github.com",
+        "api.linear.app",
+        "api.openai.com",
+        "app.gitpod.io",
+        "codeload.github.com",
+        "github.com",
+        "mcr.microsoft.com",
+      ]) &&
       toset(one(one(google_compute_network_firewall_policy_rule.allowed_domains.match).layer4_configs).ports) == toset(["443"]) &&
       length(google_compute_network_firewall_policy_rule.proxy_domains) == 0 &&
       length(google_compute_network_firewall_policy_rule.proxy_ip_ranges) == 0 &&
@@ -90,7 +99,7 @@ run "default_deny_with_private_google_apis" {
       google_compute_network_firewall_policy_rule.deny_all.enable_logging &&
       google_compute_network_firewall_policy_rule.deny_all.priority == 65000
     )
-    error_message = "The default policy must allow only internal, PSC, and app.gitpod.io HTTPS before denying all other egress."
+    error_message = "The default policy must allow only internal, PSC, and baseline HTTPS domains before denying all other egress."
   }
   assert {
     condition = (
@@ -124,7 +133,18 @@ run "default_deny_with_private_google_apis" {
 
   assert {
     condition = (
-      toset(one(one(google_network_security_security_profile.url_filtering.url_filtering_profile).url_filters).urls) == toset(["app.gitpod.io"]) &&
+      toset(one(one(google_network_security_security_profile.url_filtering.url_filtering_profile).url_filters).urls) == toset([
+        "*data.mcr.microsoft.com",
+        "*githubusercontent.com",
+        "api.atlassian.com",
+        "api.github.com",
+        "api.linear.app",
+        "api.openai.com",
+        "app.gitpod.io",
+        "codeload.github.com",
+        "github.com",
+        "mcr.microsoft.com",
+      ]) &&
       google_network_security_security_profile_group.url_filtering.name == "test-runner-url-filter" &&
       toset(keys(google_network_security_firewall_endpoint.url_filtering)) == toset(["us-central1-a", "us-central1-b"]) &&
       google_compute_network_firewall_policy_rule.url_filtering.action == "apply_security_profile_group" &&
@@ -137,14 +157,25 @@ run "default_deny_with_private_google_apis" {
 
   assert {
     condition = (
-      toset(output.firewall_allowed_domains) == toset(["app.gitpod.io"]) &&
+      toset(output.firewall_allowed_domains) == toset([
+        ".data.mcr.microsoft.com",
+        ".githubusercontent.com",
+        "api.atlassian.com",
+        "api.github.com",
+        "api.linear.app",
+        "api.openai.com",
+        "app.gitpod.io",
+        "codeload.github.com",
+        "github.com",
+        "mcr.microsoft.com",
+      ]) &&
       toset(output.internal_runner_ips) == toset(["10.0.0.10", "10.0.0.11"])
     )
     error_message = "The example outputs must expose the effective public allowlist and restricted runner addresses."
   }
 }
 
-run "extended_allowlist" {
+run "custom_allowlist" {
   command = plan
 
   variables {
@@ -155,11 +186,12 @@ run "extended_allowlist" {
   assert {
     condition = (
       toset(one(google_compute_network_firewall_policy_rule.allowed_domains.match).dest_fqdns) == toset(["app.gitpod.io", "github.com"]) &&
+      toset(one(one(google_network_security_security_profile.url_filtering.url_filtering_profile).url_filters).urls) == toset(["app.gitpod.io", "github.com"]) &&
       length(google_compute_network_firewall_policy_rule.allowed_ip_ranges) == 1 &&
       toset(one(google_compute_network_firewall_policy_rule.allowed_ip_ranges[0].match).dest_ip_ranges) == toset(["192.0.2.0/24"]) &&
       toset(one(google_compute_network_firewall_policy_rule.url_filtering_allowed_ip_ranges[0].match).dest_ip_ranges) == toset(["192.0.2.0/24"])
     )
-    error_message = "Operators must be able to extend the HTTPS domain and CIDR allowlists."
+    error_message = "Operators must be able to replace the HTTPS domain allowlist and extend the CIDR allowlist."
   }
 }
 

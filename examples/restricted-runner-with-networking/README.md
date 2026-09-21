@@ -4,7 +4,8 @@ This example creates a dedicated VPC for a restricted Ona runner. The runner has
 
 Outbound connectivity is default-deny:
 
-- Cloud NGFW allows public HTTPS only to `app.gitpod.io` by default.
+- Cloud NGFW allows public HTTPS to the domains in `firewall.yaml` by default,
+  matching the AWS restricted-runner baseline plus the GCP management plane.
 - Private Service Connect's `all-apis` bundle carries `*.googleapis.com`, `*.pkg.dev`, and `*.gcr.io` traffic without public internet egress.
 - VPC-internal traffic continues through the root module's more specific firewall rules.
 - Google Cloud always permits each VM to reach its local metadata server for DNS, DHCP, NTP, and identity tokens.
@@ -53,7 +54,7 @@ Runner and Redis sizing, proxy VM and load-balancer settings, and public
 certificate settings remain owned by the restricted topology and are not
 configurable through this example.
 
-Development environments cannot reach SCMs, editor downloads, package registries, or arbitrary websites until their exact hostnames are added to `firewall_allowed_domains`. Cloud NGFW FQDN objects do not accept wildcard names. `firewall_allowed_ip_ranges` can add HTTPS CIDR exceptions when an endpoint does not have stable DNS.
+The baseline covers Linear, GitHub, Jira Cloud, OpenAI, and Microsoft Container Registry. Development environments cannot reach other SCMs, editor downloads, package registries, or arbitrary websites by default. Set `firewall_allowed_domains` to replace the baseline with every exact hostname the deployment requires. `firewall_allowed_ip_ranges` can add HTTPS CIDR exceptions when an endpoint does not have stable DNS.
 
 When using `proxy_config`, each non-empty proxy URL must contain an explicit
 hostname or IPv4 address and port. The example derives narrowly scoped Cloud
@@ -62,7 +63,7 @@ required proxy CA through `ca_certificate`. Cloud NGFW sees the proxy as the
 network destination and cannot restrict destinations tunneled through it, so
 the configured proxy must enforce the deployment's outbound-access policy.
 
-Cloud NGFW FQDN rules alone resolve names to destination IP addresses. The example also uses Cloud NGFW URL filtering to distinguish an approved hostname from other services sharing the same destination IP.
+Cloud NGFW FQDN rules alone resolve names to destination IP addresses and do not support wildcard names. The example also uses Cloud NGFW URL filtering to distinguish an approved hostname from other services sharing the same destination IP. Leading-dot suffix entries in the built-in baseline are translated to URL-filter wildcard matchers and omitted from the exact FQDN rule.
 
 The example always creates project-scoped Cloud NGFW Enterprise URL-filtering profiles and a billable firewall endpoint in every configured zone. Among direct hostname-based connections, only `firewall_allowed_domains` are allowed by the profile's SNI or HTTP host inspection; its implicit fallback denies other domains. Explicit `firewall_allowed_ip_ranges` and configured proxy endpoints bypass Layer 7 inspection. The rule targets the environment VM service account, leaving runner control-plane traffic on the FQDN path.
 
