@@ -7,8 +7,12 @@ locals {
     20,
   )
 
+  firewall_config         = yamldecode(file("${path.module}/firewall.yaml"))
+  firewall_config_domains = local.firewall_config.allowed_domains
   firewall_allowed_domains = sort(tolist(toset([
-    for domain in var.firewall_allowed_domains : lower(domain)
+    for domain in(
+      var.firewall_allowed_domains == null ? toset(local.firewall_config_domains) : var.firewall_allowed_domains
+    ) : lower(domain)
   ])))
 
   proxy_endpoint_parts = var.proxy_config == null ? [] : [

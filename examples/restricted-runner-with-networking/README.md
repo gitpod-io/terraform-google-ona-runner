@@ -4,7 +4,8 @@ This example creates a dedicated VPC for a restricted Ona runner. The runner has
 
 Outbound connectivity is default-deny:
 
-- Cloud NGFW allows public HTTPS only to `app.gitpod.io` by default.
+- Cloud NGFW allows public HTTPS to the domains in `firewall.yaml` by default,
+  including the Ona management plane and Microsoft Container Registry.
 - Private Service Connect's `all-apis` bundle carries `*.googleapis.com`, `*.pkg.dev`, and `*.gcr.io` traffic without public internet egress.
 - VPC-internal traffic continues through the root module's more specific firewall rules.
 - Google Cloud always permits each VM to reach its local metadata server for DNS, DHCP, NTP, and identity tokens.
@@ -53,7 +54,7 @@ Runner and Redis sizing, proxy VM and load-balancer settings, and public
 certificate settings remain owned by the restricted topology and are not
 configurable through this example.
 
-Development environments cannot reach SCMs, editor downloads, package registries, or arbitrary websites until their exact hostnames are added to `firewall_allowed_domains`. Cloud NGFW FQDN objects do not accept wildcard names. `firewall_allowed_ip_ranges` can add HTTPS CIDR exceptions when an endpoint does not have stable DNS.
+Development environments cannot reach SCMs, editor downloads, package registries outside the `firewall.yaml` baseline, or arbitrary websites by default. Set `firewall_allowed_domains` to replace the baseline with every exact hostname the deployment requires. Cloud NGFW FQDN objects do not accept wildcard names. `firewall_allowed_ip_ranges` can add HTTPS CIDR exceptions when an endpoint does not have stable DNS.
 
 When using `proxy_config`, each non-empty proxy URL must contain an explicit
 hostname or IPv4 address and port. The example derives narrowly scoped Cloud

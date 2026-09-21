@@ -1,0 +1,7 @@
+# Baseline TLS hostnames for the example-managed egress policy.
+allowed_domains:
+  # Ona management plane: register the runner and exchange control-plane traffic.
+  - app.gitpod.io
+
+  # MCR registry: resolve base devcontainer image manifests for new environments.
+  - mcr.microsoft.com

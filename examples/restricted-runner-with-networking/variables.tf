@@ -216,16 +216,16 @@ variable "psc_google_apis_ip" {
 }
 
 variable "firewall_allowed_domains" {
-  description = "HTTPS domains allowed through Cloud NGFW. app.gitpod.io is the only default. FQDN objects do not support wildcards."
+  description = "HTTPS domains allowed through Cloud NGFW. When null, the firewall.yaml baseline is used; an explicit set replaces it. FQDN objects do not support wildcards."
   type        = set(string)
-  default     = ["app.gitpod.io"]
+  default     = null
 
   validation {
-    condition = length(var.firewall_allowed_domains) > 0 && alltrue([
+    condition = var.firewall_allowed_domains == null ? true : length(var.firewall_allowed_domains) > 0 && alltrue([
       for domain in var.firewall_allowed_domains :
       length(domain) <= 253 && can(regex("^([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\\.)+[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$", domain))
     ])
-    error_message = "firewall_allowed_domains must contain one or more exact, valid domain names."
+    error_message = "firewall_allowed_domains must be null or contain one or more exact, valid domain names."
   }
 }
 
