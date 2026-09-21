@@ -102,7 +102,7 @@ resource "google_compute_network_firewall_policy_rule" "allowed_domains" {
   description     = "Allow HTTPS to explicitly approved public domains."
 
   match {
-    dest_fqdns = local.firewall_allowed_domains
+    dest_fqdns = local.firewall_allowed_fqdns
 
     layer4_configs {
       ip_protocol = "tcp"

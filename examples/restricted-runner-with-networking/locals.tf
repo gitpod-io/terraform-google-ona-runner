@@ -14,6 +14,15 @@ locals {
       var.firewall_allowed_domains == null ? toset(local.firewall_config_domains) : var.firewall_allowed_domains
     ) : lower(domain)
   ])))
+  # FQDN objects require exact hostnames, while URL filters use a leading asterisk
+  # to match a domain and all of its subdomains.
+  firewall_allowed_fqdns = [
+    for domain in local.firewall_allowed_domains : domain
+    if !startswith(domain, ".")
+  ]
+  firewall_url_filter_patterns = [
+    for domain in local.firewall_allowed_domains : startswith(domain, ".") ? "*${trimprefix(domain, ".")}" : domain
+  ]
 
   proxy_endpoint_parts = var.proxy_config == null ? [] : [
     for proxy_url in distinct(compact([

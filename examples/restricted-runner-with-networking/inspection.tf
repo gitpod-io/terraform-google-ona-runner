@@ -10,7 +10,7 @@ resource "google_network_security_security_profile" "url_filtering" {
     url_filters {
       priority         = 1000
       filtering_action = "ALLOW"
-      urls             = local.firewall_allowed_domains
+      urls             = local.firewall_url_filter_patterns
     }
   }
 
