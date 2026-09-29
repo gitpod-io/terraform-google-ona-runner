@@ -18,9 +18,9 @@ extract_one() {
   ' "$health_check"
 }
 
-runner_assignment=$(extract_one '^[[:space:]]*runner_stable=\$\(')
-proxy_assignment=$(extract_one '^[[:space:]]*proxy_stable=\$\(')
-core_condition=$(extract_one '^[[:space:]]*if \(\( runner_stable ==.*; then$')
+runner_assignment=$(extract_one '^[[:space:]]*runner_stable=[$][(]')
+proxy_assignment=$(extract_one '^[[:space:]]*proxy_stable=[$][(]')
+core_condition=$(extract_one '^[[:space:]]*if [(][(] runner_stable ==.*; then$')
 
 # Variables in this code expand in the child shell, not while building it.
 # shellcheck disable=SC2016
