@@ -14,6 +14,9 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
+    - name: Test health-check stability parsing
+      run: bash tests/test_health_check.sh
       
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3

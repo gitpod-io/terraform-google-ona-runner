@@ -32,6 +32,11 @@ When upgrading an existing deployment, review the
 and inspect a plan before applying. Keep the deployment's provider lockfile
 and update it intentionally with `terraform init -upgrade`.
 
+## Upgrading
+
+For an existing 3.x deployment, follow the [4.0 upgrade guide](docs/UPGRADE-4.0.md)
+for changed requirements, configuration updates, and resource-address migrations.
+
 ## Example
 
 The [`runner-with-networking`](./examples/runner-with-networking/) example

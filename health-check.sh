@@ -171,11 +171,11 @@ while : ; do
       echo "The MIG might not exist yet or there's a permission issue."
       exit 1
     fi
-    proxy_stable=$(echo "$proxy_igm_json" | grep -c '"isStable": true' 2>/dev/null || echo "0")
+    proxy_stable=$(echo "$proxy_igm_json" | grep -c '"isStable": true' 2>/dev/null || true)
     proxy_current_size=$(echo "$proxy_igm_json" | grep -o '"currentActions":[^}]*"creating":[0-9]*' | grep -o '[0-9]*$' || echo "0")
   fi
 
-  runner_stable=$(echo "$runner_igm_json" | grep -c '"isStable": true' 2>/dev/null || echo "0")
+  runner_stable=$(echo "$runner_igm_json" | grep -c '"isStable": true' 2>/dev/null || true)
   
   # Debug: Show current MIG status
   runner_current_size=$(echo "$runner_igm_json" | grep -o '"currentActions":[^}]*"creating":[0-9]*' | grep -o '[0-9]*$' || echo "0")
