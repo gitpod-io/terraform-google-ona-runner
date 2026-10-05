@@ -49,6 +49,25 @@ To run all checks manually:
 pre-commit run --all-files
 ```
 
+### Health-check Bash test
+
+Run the stability parsing regression test with Bash and standard text utilities:
+
+```bash
+bash tests/test_health_check.sh
+```
+
+It tests the stability assignments and core health condition from
+`health-check.sh` with synthetic MIG responses, without cloud credentials,
+network access, Terraform, or polling delays. It covers stable, unstable,
+missing, and empty responses, plus insufficient running or healthy instances.
+Failures display embedded newlines explicitly as `$'0\n0'`. It does not test
+the full polling loop or live GCP behavior.
+
+To test a script extracted from a module release, pass its path as the first
+argument: `bash tests/test_health_check.sh /path/to/health-check.sh`.
+The same test runs in the GitHub Actions validation workflow.
+
 ### Terraform tests
 
 Run the private runner addressing tests with Terraform 1.16 or later:
