@@ -68,6 +68,15 @@ To test a script extracted from a module release, pass its path as the first
 argument: `bash tests/test_health_check.sh /path/to/health-check.sh`.
 The same test runs in the GitHub Actions validation workflow.
 
+### Release manifest test
+
+Run `python3 tests/test_release_manifest.py` to test release metadata selection
+without network access. The release workflow fetches the version-specific
+manifest selected by the default runner image in `locals.tf`, verifies all four
+image defaults match, and uses that same manifest for release notes and the
+notification. Missing manifests or mismatched images stop the release before
+publication. This does not promote the global stable channel.
+
 ### Terraform tests
 
 Run the private runner addressing tests with Terraform 1.16 or later:
