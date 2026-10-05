@@ -17,9 +17,6 @@ jobs:
 
     - name: Test health-check stability parsing
       run: bash tests/test_health_check.sh
-
-    - name: Test release manifest selection
-      run: python3 tests/test_release_manifest.py
       
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3

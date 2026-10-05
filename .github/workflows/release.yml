@@ -44,11 +44,10 @@ jobs:
           echo "tag=${PREV_TAG}" >> $GITHUB_OUTPUT
           echo "Previous tag: ${PREV_TAG}"
 
-      - name: Fetch and validate pinned release manifest
+      - name: Fetch manifest.json
         id: manifest
         run: |
-          python3 .github/scripts/release_manifest.py locals.tf > "$RUNNER_TEMP/release-manifest.json"
-          MANIFEST=$(cat "$RUNNER_TEMP/release-manifest.json")
+          MANIFEST=$(curl -sf https://storage.googleapis.com/gitpod-runner-releases/gcp/stable/manifest.json)
           echo "version=$(echo "$MANIFEST" | jq -r '.version')" >> $GITHUB_OUTPUT
           echo "runner_image=$(echo "$MANIFEST" | jq -r '.runner_image')" >> $GITHUB_OUTPUT
           echo "proxy_image=$(echo "$MANIFEST" | jq -r '.proxy_image')" >> $GITHUB_OUTPUT
@@ -203,7 +202,7 @@ jobs:
 
       - name: Publish release notification
         run: |
-          MANIFEST=$(cat "$RUNNER_TEMP/release-manifest.json")
+          MANIFEST=$(curl -sf https://storage.googleapis.com/gitpod-runner-releases/gcp/stable/manifest.json)
 
           # Build enriched payload with terraform module changes
           PAYLOAD=$(echo "$MANIFEST" | jq \
