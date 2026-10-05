@@ -98,7 +98,7 @@ declared moves. Update custom import, targeting, or state-management scripts
 that reference the old addresses, preserving the deployment's module prefix.
 
 Do not expect a completely empty plan: the default runner and proxy images
-advance from `20260814.483` in 3.2.2 to `20260928.1073` in this release. Unless
+advance from `20260814.483` in 3.2.2 to `20261002.737` in this release. Unless
 overridden, those defaults and the reported module version can update instance
 templates and roll the managed instance groups. Provider 7 can also introduce
 plan differences described in its upgrade guide. Review replacements and
