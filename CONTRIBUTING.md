@@ -83,14 +83,17 @@ They cover defaults, private addressing, Shared VPC placement, public trust,
 versioned runner configuration, and managed versus externally managed TLS IAM. Module deployments retain the
 Terraform version requirement in `versions.tf`.
 
-Run the custom runner image parsing tests with the same initialized providers:
+Run the custom image tests with the same initialized providers:
 
 ```bash
 terraform test -filter=tests/custom-images.tftest.hcl
 ```
 
-These credential-free plan tests cover tags, digests, untagged images, registry
-ports, and the default image when no custom runner image is configured.
+These credential-free plan tests cover runner image parsing and preservation of
+custom runner, proxy, Prometheus, and node-exporter references, including tags,
+digests, untagged images, and registry ports. They also inspect cloud-init service
+commands on both VM types, Docker credential configuration, and defaults when
+no custom runner image is configured. They do not pull images or run containers.
 
 ### Internal TLS lifecycle test
 

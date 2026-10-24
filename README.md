@@ -42,6 +42,34 @@ for changed requirements, configuration updates, and resource-address migrations
 The [`runner-with-networking`](./examples/runner-with-networking/) example
 provides a full infrastructure setup including VPC, DNS, and certificates.
 
+## Custom images
+
+The root module accepts all four container image overrides:
+
+```hcl
+custom_images = {
+  runner_image        = "registry.example.com/team/runner:release"
+  proxy_image         = "registry.example.com/team/proxy:release"
+  prometheus_image    = "registry.example.com/team/prometheus:metrics"
+  node_exporter_image = "registry.example.com/team/node-exporter:metrics"
+}
+```
+
+Terraform preserves each full image reference, including its tag or digest, in
+the initial VM's container commands. Prometheus and node-exporter overrides
+apply to both runner and proxy VMs. Auth-proxy uses the runner image; a separate
+auth-proxy image override is not supported. An empty override uses the module's
+default image. A non-empty `development_version` overrides the runner image.
+
+For runner updates, the module also passes the full runner image path without
+its tag or digest through `--custom-image-registry`. The configured startup
+reference therefore does not pin automatic runner updates. No equivalent custom
+update-image setting exists for proxy, Prometheus, or node-exporter; change their
+image references through Terraform.
+
+The restricted-runner wrapper accepts runner, Prometheus, and node-exporter
+overrides. It does not expose `proxy_image` because it deploys no proxy VM.
+
 ## Restricted ingress
 
 The [`restricted-runner`](./modules/restricted-runner/) wrapper enables

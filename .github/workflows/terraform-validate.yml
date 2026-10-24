@@ -33,7 +33,7 @@ jobs:
     - name: Terraform Validate
       run: terraform validate
 
-    - name: Test custom runner image parsing
+    - name: Test custom images
       run: terraform test -filter=tests/custom-images.tftest.hcl
       
     - name: Test private runner configuration
