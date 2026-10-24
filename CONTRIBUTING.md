@@ -83,6 +83,15 @@ They cover defaults, private addressing, Shared VPC placement, public trust,
 versioned runner configuration, and managed versus externally managed TLS IAM. Module deployments retain the
 Terraform version requirement in `versions.tf`.
 
+Run the custom runner image parsing tests with the same initialized providers:
+
+```bash
+terraform test -filter=tests/custom-images.tftest.hcl
+```
+
+These credential-free plan tests cover tags, digests, untagged images, registry
+ports, and the default image when no custom runner image is configured.
+
 ### Internal TLS lifecycle test
 
 Run `python3 tests/test_internal_runner_tls.py` with Terraform 1.11+, Python 3,

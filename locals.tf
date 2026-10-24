@@ -83,9 +83,9 @@ locals {
   insecure_registries_json = jsonencode(tolist(local.custom_image_registries))
 
   # Custom image registry extraction for --custom-image-registry flag
-  # Extract registry part (without tag) from runner image when custom image is used
+  # Remove only the tag or digest, preserving the full image path and registry port.
   runner_uses_custom_image = var.custom_images.runner_image != ""
-  custom_runner_registry   = local.runner_uses_custom_image ? regex("^([^/]+(?:/[^/]+)*?)(?:/[^/:]+)?(?:[:@].*)?$", var.custom_images.runner_image)[0] : ""
+  custom_runner_registry   = local.runner_uses_custom_image ? replace(var.custom_images.runner_image, "/[:@][^/]*$/", "") : ""
 
   # Centralized logs URL for container-based filtering
   logs_url = "https://console.cloud.google.com/logs/query;query=resource.type%%3D%%22gce_instance%%22%%0A%%2528jsonPayload.%%22cos.googleapis.com%%2Fcontainer_name%%22%%3D%%22gitpod-runner%%22%%20OR%%20jsonPayload.%%22cos.googleapis.com%%2Fcontainer_name%%22%%3D%%22gitpod-proxy%%22%%2529;duration=PT3H?project=${var.project_id}"
