@@ -18,11 +18,11 @@ locals {
   })
 
   # Default images
-  default_runner_image = "us-docker.pkg.dev/gitpod-next-production/gitpod-next/gitpod-gcp-runner:20261106.680"
-  default_proxy_image  = "us-docker.pkg.dev/gitpod-next-production/gitpod-next/gitpod-proxy:20261106.680"
+  default_runner_image = "us-docker.pkg.dev/gitpod-next-production/gitpod-next/gitpod-gcp-runner:20261109.49"
+  default_proxy_image  = "us-docker.pkg.dev/gitpod-next-production/gitpod-next/gitpod-proxy:20261109.49"
 
   default_prometheus_image    = "us-docker.pkg.dev/gitpod-next-production/gitpod-next/prometheus:v3.13.5"
-  default_node_exporter_image = "us-docker.pkg.dev/gitpod-next-production/gitpod-next/node-exporter:v1.12.1-ona.2-f0b05c4675fe9d25895f00ef1ba62bd76b68fa97"
+  default_node_exporter_image = "us-docker.pkg.dev/gitpod-next-production/gitpod-next/node-exporter:v1.12.1-ona.2-af9c06d7b684fdcbd464e48ca6144984d754dcf9"
 
   # Final images (custom or default)
   runner_image        = var.custom_images.runner_image != "" ? var.custom_images.runner_image : local.default_runner_image
